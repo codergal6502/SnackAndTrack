@@ -1,0 +1,44 @@
+# Visual Studio Code
+.vscode/
+.history/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+
+# Rider
+.idea/
+
+# Visual Studio for Mac
+*.sln.ide
+
+# NuGet Packages
+*.nupkg
+**/packages/*
+!**/packages/build/
+!**/packages/build/**/lib/netstandard2.0/*.dll
+
+# Visual Studio Code Extensions
+.vscode/extensions.json
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+Thumbs.db
