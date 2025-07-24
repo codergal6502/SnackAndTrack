@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', foodItemNutrients: [] });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', nutrients: [] });
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -25,18 +25,18 @@ const FoodItemForm = () => {
 
     const handleNutrientChange = (index, e) => {
         const { name, value } = e.target;
-        const nutrients = [...foodItem.foodItemNutrients];
+        const nutrients = [...foodItem.nutrients];
         nutrients[index] = { ...nutrients[index], [name]: value };
-        setFoodItem({ ...foodItem, foodItemNutrients: nutrients });
+        setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
     const addNutrient = () => {
-        setFoodItem({ ...foodItem, foodItemNutrients: [...foodItem.foodItemNutrients, { nutrient: '', quantity: 0 }] });
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { name: '', quantity: 0 }] });
     };
 
     const removeNutrient = (index) => {
-        const nutrients = foodItem.foodItemNutrients.filter((_, i) => i !== index);
-        setFoodItem({ ...foodItem, foodItemNutrients: nutrients });
+        const nutrients = foodItem.nutrients.filter((_, i) => i !== index);
+        setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
     const handleSubmit = async (e) => {
@@ -86,13 +86,13 @@ const FoodItemForm = () => {
                 />
             </div>
             <h4>Nutrition Information per Serving</h4>
-            {foodItem.foodItemNutrients.map((nutrient, index) => (
+            {foodItem.nutrients.map((nutrient, index) => (
                 <div key={index} className="nutrient-group">
                     <input
                         type="text"
-                        name="nutrient"
+                        name="name"
                         className="form-control"
-                        value={nutrient.nutrient}
+                        value={nutrient.name}
                         onChange={(e) => handleNutrientChange(index, e)}
                         placeholder="Nutrient"
                         required

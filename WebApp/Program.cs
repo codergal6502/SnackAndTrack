@@ -1,44 +1,46 @@
 using Microsoft.EntityFrameworkCore;
-using SnackAndTrack.Data;
+using SnackAndTrack.DatabaseAccess;
 
-internal class Program
-{
-    private static void Main(string[] args)
+namespace SnackAndTrack.WebApp {
+    internal class Program
     {
-        var builder = WebApplication.CreateBuilder(args);
-
-        // Add services to the container.
-
-        builder.Services.AddControllersWithViews();
-
-        builder.Services.AddDbContext<SnackAndTrackDbContext>(options => 
-            options.UseNpgsql(builder.Configuration.GetConnectionString("PSQLConnection"))
-        );
-
-        var app = builder.Build();
-
-        // Configure the HTTP request pipeline.
-        if (!app.Environment.IsDevelopment())
+        private static void Main(string[] args)
         {
-            // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-            app.UseHsts();
+            var builder = WebApplication.CreateBuilder(args);
+
+            // Add services to the container.
+
+            builder.Services.AddControllersWithViews();
+
+            builder.Services.AddDbContext<SnackAndTrackDbContext>(options => 
+                options.UseNpgsql(builder.Configuration.GetConnectionString("PSQLConnection"))
+            );
+
+            var app = builder.Build();
+
+            // Configure the HTTP request pipeline.
+            if (!app.Environment.IsDevelopment())
+            {
+                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+                app.UseHsts();
+            }
+
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
+            app.UseRouting();
+
+            app.MapControllerRoute(
+                name: "default",
+                pattern: "{controller}/{action=Index}/{id?}");
+
+            if (app.Environment.IsDevelopment()) {
+                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
+                    string.Join("\n", endpointSources.SelectMany(source => source.Endpoints)));
+            }
+
+            app.MapFallbackToFile("index.html");
+
+            app.Run();
         }
-
-        app.UseHttpsRedirection();
-        app.UseStaticFiles();
-        app.UseRouting();
-
-        app.MapControllerRoute(
-            name: "default",
-            pattern: "{controller}/{action=Index}/{id?}");
-
-        if (app.Environment.IsDevelopment()) {
-            app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
-                string.Join("\n", endpointSources.SelectMany(source => source.Endpoints)));
-        }
-
-        app.MapFallbackToFile("index.html");
-
-        app.Run();
     }
 }
