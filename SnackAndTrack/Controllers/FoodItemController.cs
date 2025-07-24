@@ -12,26 +12,28 @@ namespace SnackAndTrack.Controllers {
 
         public FoodItemsController(SnackAndTrackDbContext context)
         {
-            _context = context;
+            this._context = context;
         }
 
         // GET: api/FoodItems
         [HttpGet]
         public async Task<ActionResult<IEnumerable<FoodItem>>> GetFoodItems()
         {
-            return await _context.FoodItems.ToListAsync();
+            return await this._context.FoodItems.ToListAsync();
         }
 
         // GET: api/FoodItems/5
         [HttpGet("{id}")]
         public async Task<ActionResult<FoodItem>> GetFoodItem(Guid id)
         {
-            var foodItem = await _context.FoodItems.FindAsync(id);
+            var foodItem = await this._context.FoodItems.FindAsync(id);
 
             if (foodItem == null)
             {
                 return NotFound();
             }
+
+            await this._context.Entry(foodItem).Collection(fi => fi.FoodItemNutrients).LoadAsync();
 
             return foodItem;
         }
@@ -40,8 +42,8 @@ namespace SnackAndTrack.Controllers {
         [HttpPost]
         public async Task<ActionResult<FoodItem>> PostFoodItem(FoodItem foodItem)
         {
-            _context.FoodItems.Add(foodItem);
-            await _context.SaveChangesAsync();
+            this._context.FoodItems.Add(foodItem);
+            await this._context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetFoodItem), new { id = foodItem.Id }, foodItem);
         }
@@ -55,11 +57,11 @@ namespace SnackAndTrack.Controllers {
                 return BadRequest();
             }
 
-            _context.Entry(foodItem).State = EntityState.Modified;
+            this._context.Entry(foodItem).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync();
+                await this._context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -80,14 +82,14 @@ namespace SnackAndTrack.Controllers {
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteFoodItem(Guid id)
         {
-            var foodItem = await _context.FoodItems.FindAsync(id);
+            var foodItem = await this._context.FoodItems.FindAsync(id);
             if (foodItem == null)
             {
                 return NotFound();
             }
 
-            _context.FoodItems.Remove(foodItem);
-            await _context.SaveChangesAsync();
+            this._context.FoodItems.Remove(foodItem);
+            await this._context.SaveChangesAsync();
 
             return NoContent();
         }

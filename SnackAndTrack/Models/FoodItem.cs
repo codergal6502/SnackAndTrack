@@ -1,7 +1,8 @@
 namespace SnackAndTrack.Models {
     public class FoodItem {
-        public Guid    Id    { get; set; }
+        public Guid? Id { get; set; }
         public String? Name  { get; set; }
         public String? Brand { get; set; }
+        public ICollection<FoodItemNutrient>? FoodItemNutrients { get; set; }
     }
 }

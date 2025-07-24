@@ -10,7 +10,7 @@ using SnackAndTrack.Data;
 namespace SnackAndTrack.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250724022617_InitialCreate")]
+    [Migration("20250724195730_InitialCreate")]
     partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -23,7 +23,7 @@ namespace SnackAndTrack.Migrations
 
             modelBuilder.Entity("SnackAndTrack.Models.FoodItem", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid?>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -36,6 +36,40 @@ namespace SnackAndTrack.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("FoodItems");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.Models.FoodItemNutrient", b =>
+                {
+                    b.Property<Guid?>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FoodItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Nutrient")
+                        .HasColumnType("text");
+
+                    b.Property<short?>("Quantity")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodItemId");
+
+                    b.ToTable("FoodItemNutrients");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.Models.FoodItemNutrient", b =>
+                {
+                    b.HasOne("SnackAndTrack.Models.FoodItem", null)
+                        .WithMany("FoodItemNutrients")
+                        .HasForeignKey("FoodItemId");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.Models.FoodItem", b =>
+                {
+                    b.Navigation("FoodItemNutrients");
                 });
 #pragma warning restore 612, 618
         }

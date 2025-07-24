@@ -8,5 +8,6 @@ namespace SnackAndTrack.Data {
         }
 
         public DbSet<FoodItem> FoodItems { get; set; }
+        public DbSet<FoodItemNutrient> FoodItemNutrients { get; set; }
     }
 }
