@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
 
 namespace SnackAndTrack.WebApp {
+
     internal class Program
     {
         private static void Main(string[] args)
@@ -15,6 +16,8 @@ namespace SnackAndTrack.WebApp {
             builder.Services.AddDbContext<SnackAndTrackDbContext>(options => 
                 options.UseNpgsql(builder.Configuration.GetConnectionString("PSQLConnection"))
             );
+
+            builder.Services.AddHostedService<SnackAndTrackDbContextInitalizationService>();
 
             var app = builder.Build();
 

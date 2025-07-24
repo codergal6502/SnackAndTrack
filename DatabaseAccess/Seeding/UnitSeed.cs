@@ -1,0 +1,86 @@
+using Microsoft.EntityFrameworkCore;
+using SnackAndTrack.DatabaseAccess.Entities;
+
+namespace SnackAndTrack.DatabaseAccess.Seeding {
+    public class UnitSeed {
+        private readonly SnackAndTrackDbContext _ctx;
+
+        public UnitSeed(SnackAndTrackDbContext ctx) {
+            this._ctx = ctx;
+        }
+
+        public void DoSeed() {
+            this._ctx.Units.Load();
+
+            EnsureUnits("Volume", "Cups");
+            EnsureUnits("Volume", "Tablespoons");
+            EnsureUnits("Volume", "Teaspooons");
+            EnsureUnits("Volume", "Ounces");
+            
+            EnsureUnits("Mass", "Grams");
+            EnsureUnits("Mass", "Milligrams");
+            EnsureUnits("Mass", "Micrograms");
+            EnsureUnits("Mass", "Ounces");
+            EnsureUnits("Mass", "Pounds");
+
+            this._ctx.UnitConversions.Include(uc => uc.FromUnit).Include(uc => uc.ToUnit).Load();
+
+            this._ctx.SaveChanges();
+
+            EnsureUnitConversion("Volume", "Cups",        "Tablespoons", 16);
+            EnsureUnitConversion("Volume", "Cups",        "Teaspooons",  48);
+            EnsureUnitConversion("Volume", "Cups",        "Ounces",      8);
+            EnsureUnitConversion("Volume", "Ounces",      "Tablespoons", 2);
+            EnsureUnitConversion("Volume", "Ounces",      "Teaspooons",  6);
+            EnsureUnitConversion("Volume", "Tablespoons", "Teaspooons",  3);
+
+            this._ctx.SaveChanges();
+        }
+
+        private void EnsureUnitConversion(string type, string fromName, string toName, double ratio)
+        {
+            Unit fromUnit = this._ctx.Units.Single(u => u.UnitType == type && u.UnitName == fromName);
+            Unit toUnit = this._ctx.Units.Single(u => u.UnitType == type && u.UnitName == toName);
+
+            UnitConversion? unitConversionA = this._ctx.UnitConversions.SingleOrDefault(uc => uc.FromUnit.UnitType == type && uc.FromUnit.UnitName == fromName && uc.ToUnit.UnitType == type && uc.ToUnit.UnitName == toName);
+            if (null == unitConversionA) {
+
+                unitConversionA = new UnitConversion {
+                    Id = Guid.NewGuid()
+                  , FromUnit = fromUnit
+                  , ToUnit = toUnit
+                  , Ratio = ratio
+                };
+
+                this._ctx.Add(unitConversionA);
+            }
+            else {
+                unitConversionA.Ratio = ratio;
+            }
+
+            UnitConversion? unitConversionB = this._ctx.UnitConversions.SingleOrDefault(uc => uc.FromUnit.UnitType == type && uc.FromUnit.UnitName == toName && uc.ToUnit.UnitType == type && uc.ToUnit.UnitName == fromName);
+            if (null == unitConversionB) {
+
+                unitConversionB = new UnitConversion {
+                    Id = Guid.NewGuid()
+                  , FromUnit = toUnit
+                  , ToUnit = fromUnit
+                  , Ratio = 1 / ratio
+                };
+
+                this._ctx.Add(unitConversionB);
+            }
+            else {
+                unitConversionB.Ratio = ratio;
+            }
+        }
+
+        private void EnsureUnits(string type, string name)
+        {
+            if (! this._ctx.Units.Any(u => u.UnitName == name && u.UnitType == type)) {
+                Unit entity = new() { Id = Guid.NewGuid(), UnitType = type, UnitName = name };
+                this._ctx.Units.Add(entity);
+            }
+        }
+    }
+}

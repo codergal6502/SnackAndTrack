@@ -4,5 +4,6 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
         public required String Name  { get; set; }
         public required String Brand { get; set; }
         public required ICollection<FoodItemNutrient> FoodItemNutrients { get; set; }
+        public required ICollection<ServingSize> ServingSizes { get; set; }
     }
 }

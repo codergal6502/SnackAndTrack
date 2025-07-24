@@ -19,7 +19,7 @@ namespace SnackAndTrack.DatabaseAccess {
 
             optionsBuilder.UseNpgsql(connectionString);
 
-            return new SnackAndTrackDbContext(optionsBuilder.Options) { FoodItems = default, FoodItemNutrients = default, Nutrients = default };
+            return new SnackAndTrackDbContext(optionsBuilder.Options) { FoodItems = default, FoodItemNutrients = default, Nutrients = default, ServingSizes = default, UnitConversions = default, Units = default };
         }
     }
 }

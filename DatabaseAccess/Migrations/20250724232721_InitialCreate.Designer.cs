@@ -10,7 +10,7 @@ using SnackAndTrack.DatabaseAccess;
 namespace DatabaseAccess.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250724212526_InitialCreate")]
+    [Migration("20250724232721_InitialCreate")]
     partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -66,16 +66,84 @@ namespace DatabaseAccess.Migrations
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Nutrient", b =>
                 {
-                    b.Property<Guid?>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.ToTable("Nutrients");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.ServingSize", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<float>("Amount")
+                        .HasColumnType("real");
+
+                    b.Property<Guid>("FoodItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoodItemId");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("ServingSizes");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Unit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UnitName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UnitType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Units");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.UnitConversion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FromUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("Ratio")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid?>("ToUnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromUnitId");
+
+                    b.HasIndex("ToUnitId");
+
+                    b.ToTable("UnitConversions");
                 });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItemNutrient", b =>
@@ -97,9 +165,43 @@ namespace DatabaseAccess.Migrations
                     b.Navigation("Nutrient");
                 });
 
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.ServingSize", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.FoodItem", "FoodItem")
+                        .WithMany("ServingSizes")
+                        .HasForeignKey("FoodItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId");
+
+                    b.Navigation("FoodItem");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.UnitConversion", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "FromUnit")
+                        .WithMany()
+                        .HasForeignKey("FromUnitId");
+
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "ToUnit")
+                        .WithMany()
+                        .HasForeignKey("ToUnitId");
+
+                    b.Navigation("FromUnit");
+
+                    b.Navigation("ToUnit");
+                });
+
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItem", b =>
                 {
                     b.Navigation("FoodItemNutrients");
+
+                    b.Navigation("ServingSizes");
                 });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Nutrient", b =>

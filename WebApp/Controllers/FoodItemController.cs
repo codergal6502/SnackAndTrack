@@ -72,6 +72,7 @@ namespace SnackAndTrack.WebApp.Controllers {
               , Brand = model.Brand
               , Name = model.Name
               , FoodItemNutrients = []
+              , ServingSizes = []
             };
 
             this._context.Add(foodItem);
