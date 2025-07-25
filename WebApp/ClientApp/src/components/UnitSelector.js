@@ -57,7 +57,7 @@ const UnitSelector = ({ name, onUnitChange, unitType, unitId, idPrefix, idSuffix
     return (
         <>
             <div className="col">
-                <label for={`${idPrefix}unitType${idSuffix}`}>Unit Type:</label>
+                <label htmlFor={`${idPrefix}unitType${idSuffix}`}>Unit Type:</label>
                 <select
                     id={`${idPrefix}unitType${idSuffix}`}
                     value={unitType} 
@@ -71,7 +71,7 @@ const UnitSelector = ({ name, onUnitChange, unitType, unitId, idPrefix, idSuffix
                 </select>
             </div>
             <div className="col">
-                <label for={`${idPrefix}unitId${idSuffix}`}>Unit:</label>
+                <label htmlFor={`${idPrefix}unitId${idSuffix}`}>Unit:</label>
                 <select
                     id={`${idPrefix}unitId${idSuffix}`}
                     value={unitId}

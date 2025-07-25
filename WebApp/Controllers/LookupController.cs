@@ -13,6 +13,17 @@ namespace SnackAndTrack.WebApp.Controllers {
             this._context = context;
         }
 
+        [HttpGet("nutrients")]
+        public async Task<ActionResult<IEnumerable<String>>> GetNutrients([FromQuery] String? query) {
+            if (String.IsNullOrWhiteSpace(query)) {
+                return await this._context.Nutrients.Select(n => n.Name).Distinct().ToListAsync();
+            }
+            else {
+                query = query.Trim().ToLower();
+                return await this._context.Nutrients.Where(n => n.Name.ToLower().Contains(query)).Select(n => n.Name).Distinct().ToListAsync();
+            }
+        }
+
         [HttpGet("unitTypes")]
         public async Task<ActionResult<IEnumerable<string>>> GetUnitTypes() {
             return await this._context.Units.Select(u => u.UnitType).Distinct().ToListAsync();
