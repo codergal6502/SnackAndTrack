@@ -14,7 +14,9 @@ namespace SnackAndTrack.WebApp.Models {
         }
 
         public class ServingSize {
-            public required String UnitType { get; set; }
+            // optional for incoming requests; canonically it makes sense to have an input
+            // model and an ouput model but that is way too tedious for no real benefit.
+            public String? UnitType { get; set; }
             public required Guid UnitId { get; set; }
             public required Single Quantity { get; set; }
         }
