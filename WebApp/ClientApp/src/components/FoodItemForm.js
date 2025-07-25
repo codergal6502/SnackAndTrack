@@ -165,10 +165,8 @@ const FoodItemForm = () => {
                         <div className="btn-group" role="group" aria-label="Button group">
                             <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
                             <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
                         </div>
-                    </div>
-                    <div className="col-auto align-self-end">
-                        <button type="button" className="btn btn-danger" onClick={() => removeServingSize(index)}>Remove</button>
                     </div>
                 </div>
             ))}
