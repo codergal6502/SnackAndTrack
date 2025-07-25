@@ -1,10 +1,8 @@
 import React, { userState, useEffect, useState } from 'react';
 
-// <UnitSelector name="unit" onUnitChange={(e) => handleServingSizeChange(index, e)} unitId={servingSize.unitId} />
-
-const UnitSelector = ({ name, onUnitChange, unitId, idPrefix, idSuffix }) => {
+const UnitSelector = ({ name, onUnitChange, unitType, unitId, idPrefix, idSuffix }) => {
     const [unitTypes, setUnitType] = useState([]);
-    const [selectedUnitType, setSelectedUnitType] = useState('');
+    const [selectedUnitType, setSelectedUnitType] = useState(unitType || '');
     const [units, setUnits] = useState([]);
 
     useEffect(() => {
@@ -25,9 +23,11 @@ const UnitSelector = ({ name, onUnitChange, unitId, idPrefix, idSuffix }) => {
     useEffect(() => {
         async function fetchUnits() {
             try {
-                const response = await fetch(`/api/lookup/units/${selectedUnitType}`);
-                const data = await response.json();
-                setUnits(data);
+                if (selectedUnitType) {
+                    const response = await fetch(`/api/lookup/units/${selectedUnitType}`);
+                    const data = await response.json();
+                    setUnits(data);
+                }
             }
             catch (err) {
                 console.error("Error fetching units: ", err);
@@ -36,14 +36,31 @@ const UnitSelector = ({ name, onUnitChange, unitId, idPrefix, idSuffix }) => {
 
         fetchUnits();
     }, [selectedUnitType]);
+    
+    useEffect(() => {
+        if (unitType) {
+            setSelectedUnitType(unitType);
+            async function fetchInitialUnits() {
+                try {
+                    const response = await fetch(`/api/lookup/units/${unitType}`);
+                    const data = await response.json();
+                    setUnits(data);
+                } catch (err) {
+                    console.error("Error fetching initial units: ", err);
+                }
+            }
 
+            fetchInitialUnits();
+        }
+    }, [unitType]);
+    
     return (
         <>
-            <div class="col">
+            <div className="col">
                 <label for={`${idPrefix}unitType${idSuffix}`}>Unit Type:</label>
                 <select
                     id={`${idPrefix}unitType${idSuffix}`}
-                    value={selectedUnitType} 
+                    value={unitType} 
                     onChange={(e) => setSelectedUnitType(e.target.value)}
                     className="form-select"
                 >
@@ -53,12 +70,12 @@ const UnitSelector = ({ name, onUnitChange, unitId, idPrefix, idSuffix }) => {
                     ))}
                 </select>
             </div>
-            <div class="col">
+            <div className="col">
                 <label for={`${idPrefix}unitId${idSuffix}`}>Unit:</label>
                 <select
                     id={`${idPrefix}unitId${idSuffix}`}
                     value={unitId}
-                    onchange={(e) => onUnitChange(e)}
+                    onChange={onUnitChange}
                     className="form-select"
                     name={name}
                 >

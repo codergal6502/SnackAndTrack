@@ -14,8 +14,9 @@ namespace SnackAndTrack.WebApp.Models {
         }
 
         public class ServingSize {
-            public Guid? UnitId { get; set; }
-            public Single Quantity { get; set; }
+            public required String UnitType { get; set; }
+            public required Guid UnitId { get; set; }
+            public required Single Quantity { get; set; }
         }
     }
 }

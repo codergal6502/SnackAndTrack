@@ -33,7 +33,7 @@ const FoodItemForm = () => {
     }
 
     const addServingSize = () => {
-        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, { unitId: null, quantity: 0 }] });
+        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, { unitId: "", quantity: 0 }] });
     };
 
     const removeServingSize = (index) => {
@@ -83,8 +83,8 @@ const FoodItemForm = () => {
         <form onSubmit={handleSubmit}>
             <h4>Food Item</h4>
             <div className="d-flex mb-3">
-                <div class="me-3">
-                    <label for="foodItem-name" class="form-label">Name:</label>
+                <div className="me-3">
+                    <label for="foodItem-name" className="form-label">Name:</label>
                     <input
                         id="foodItem-name"
                         type="text"
@@ -95,8 +95,8 @@ const FoodItemForm = () => {
                         required
                     />
                 </div>
-                <div class="me-3">
-                    <label for="foodItem-brand" class="form-label">Brand:</label>
+                <div className="me-3">
+                    <label for="foodItem-brand" className="form-label">Brand:</label>
                     <input
                         id="foodItem-brand"
                         type="text"
@@ -108,10 +108,11 @@ const FoodItemForm = () => {
                 </div>
             </div>
             <h5>Serving Sizes</h5>
+            
             {foodItem.servingSizes.map((servingSize, index) => (
                 <div key={index} className="row mb-3">
-                    <UnitSelector name="unit" idPrefix="foodItem-" idSuffix={`-${index}`} onUnitChange={(e) => handleServingSizeChange(index, e)} unitId={servingSize.unitId} />
-                    <div class="col">
+                    <UnitSelector name="unitId" idPrefix="foodItem-" idSuffix={`-${index}`} onUnitChange={(e) => handleServingSizeChange(index, e)} unitType={servingSize.unitType} unitId={servingSize.unitId} />
+                    <div className="col">
                         <label for={`foodItem-quantity-${index}`}>Quantity:</label>
                         <input
                             id={`foodItem-quantity-${index}`}
@@ -124,16 +125,16 @@ const FoodItemForm = () => {
                             required
                         />
                     </div>
-                    <div class="col-auto align-self-end">
+                    <div className="col-auto align-self-end">
                         <button type="button" className="btn btn-danger" onClick={() => removeServingSize(index)}>Remove</button>
                     </div>
                 </div>
             ))}
-            <button type="button" class="btn btn-secondary mb-3" onClick={addServingSize}>Add Serving Size</button>
+            <button type="button" className="btn btn-secondary mb-3" onClick={addServingSize}>Add Serving Size</button>
             <h5>Nutrition Information per Serving</h5>
             {foodItem.nutrients.map((nutrient, index) => (
                 <div key={index} className="row mb-3">
-                    <div class="col">
+                    <div className="col">
                         <label for={`foodItem-nutrient-${index}`}>Nutrient</label>
                         <input
                             id={`foodItem-nutrient-${index}`}
@@ -146,7 +147,7 @@ const FoodItemForm = () => {
                             required
                         />
                     </div>
-                    <div class="col">
+                    <div className="col">
                         <label for={`foodItem-nutrient-${index}`}>Quantity</label>
                         <input
                             id={`foodItem-nutrient-${index}`}
@@ -159,23 +160,23 @@ const FoodItemForm = () => {
                             required
                         />
                     </div>
-                    <div class="col-auto align-self-end">
+                    <div className="col-auto align-self-end">
                         <button type="button" className="btn btn-danger" onClick={() => removeNutrient(index)}>Remove</button>
                     </div>
                 </div>
             ))}
-            <div class="row mb-3">
-                <div class="col-auto align-self-end">
-                    <button type="button" class="btn btn-secondary" onClick={addNutrient}>Add Nutrient</button>
+            <div className="row mb-3">
+                <div className="col-auto align-self-end">
+                    <button type="button" className="btn btn-secondary" onClick={addNutrient}>Add Nutrient</button>
                 </div>
             </div>
             <h5>Actions</h5>
-            <div class="row mb-3">
-                <div class="col-auto align-self-end">
-                    <button type="submit" class="btn btn-primary">Save</button>
+            <div className="row mb-3">
+                <div className="col-auto align-self-end">
+                    <button type="submit" className="btn btn-primary">Save</button>
                 </div>
-                <div class="col-auto align-self-end">
-                    <button type="button" class="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
+                <div className="col-auto align-self-end">
+                    <button type="button" className="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
                 </div>
             </div>
         </form>

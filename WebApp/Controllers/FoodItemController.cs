@@ -64,6 +64,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 }).ToArray()
               , ServingSizes = foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
                     UnitId = s.Unit.Id
+                  , UnitType = s.Unit.UnitType
                   , Quantity = s.Quantity
                 }).ToArray()
             };
@@ -96,11 +97,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 return BadRequest();
             }
 
-            FoodItem foodItem = await this
-                ._context
-                .FoodItems
-                .Include(fi => fi.FoodItemNutrients)
-                .ThenInclude(fin => fin.Nutrient)
+            FoodItem foodItem = await FoodItemBaseQuery()
                 .SingleAsync(fi => fi.Id == id);
 
             if (null == foodItem)
@@ -115,10 +112,57 @@ namespace SnackAndTrack.WebApp.Controllers {
 
         private async Task PopulateFoodItem(FoodItemModel model, FoodItem foodItem)
         {
-            List<FoodItemModel.Nutrient> nutritionModels = model.Nutrients.ToList();
+            foodItem.Name = model.Name.Trim();
+            foodItem.Brand = model.Brand.Trim();
+
+            await PopulateServingSizes(model, foodItem);
+            await PopulateFoodItemNutrients(model, foodItem);
+
+            await this._context.SaveChangesAsync();
+        }
+
+        private async Task PopulateServingSizes(FoodItemModel model, FoodItem foodItem) {
+            List<FoodItemModel.ServingSize> servingSizeModels = model.ServingSizes.ToList();
+            List<ServingSize> existingServingSizes = foodItem.ServingSizes.ToList();
+
+            foreach (var servingSizeModel in servingSizeModels) {
+                var existingServingSize = existingServingSizes.SingleOrDefault(s => s.Unit.Id == servingSizeModel.UnitId);
+
+                Unit unit = await _context.Units.SingleOrDefaultAsync(u => u.Id == servingSizeModel.UnitId);
+
+                if (null == unit) {
+                    throw new SnackAndTrackControllerException($"Searched for unit {servingSizeModel.UnitId} but 0 or multiple.");
+                }
+
+                if (null == existingServingSize) {
+
+                    ServingSize servingSize = new ServingSize { Id = Guid.NewGuid(), FoodItem = foodItem, Quantity = servingSizeModel.Quantity, Unit = unit };
+                    this._context.Add(servingSize);
+                    foodItem.ServingSizes.Add(servingSize);
+                }
+                else {
+                    existingServingSize.Unit = unit;
+                    existingServingSize.Quantity = servingSizeModel.Quantity;
+
+                    // Any that are left at the end should be removed from the database.
+                    existingServingSizes.Remove(existingServingSize);
+                }
+            }
+
+            // Any that are left at the end should be removed from the database.
+            foreach (var s in existingServingSizes)
+            {
+                foodItem.ServingSizes.Remove(s);
+                this._context.Remove(s);
+            }
+        }
+
+        private async Task PopulateFoodItemNutrients(FoodItemModel model, FoodItem foodItem)
+        {
+            List<FoodItemModel.Nutrient> nutrientModels = model.Nutrients.ToList();
             List<FoodItemNutrient> existingFoodItemNutrients = foodItem.FoodItemNutrients.ToList();
 
-            foreach (var nutritionModel in nutritionModels)
+            foreach (var nutritionModel in nutrientModels)
             {
                 var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Name == nutritionModel.Name);
 
@@ -150,19 +194,17 @@ namespace SnackAndTrack.WebApp.Controllers {
                 {
                     existingFoodItemNutrient.Quantity = nutritionModel.Quantity;
 
-                    // Any that are left should be removed.
+                    // Any that are left at the end should be removed from the database.
                     existingFoodItemNutrients.Remove(existingFoodItemNutrient);
                 }
             }
 
-            // Any that are left should be removed.
+            // Any that are left at the end should be removed from the database.
             foreach (var fin in existingFoodItemNutrients)
             {
                 foodItem.FoodItemNutrients.Remove(fin);
                 this._context.Remove(fin);
             }
-
-            await this._context.SaveChangesAsync();
         }
 
         // DELETE: api/FoodItems/5
