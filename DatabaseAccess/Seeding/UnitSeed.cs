@@ -12,6 +12,9 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
         public void DoSeed() {
             this._ctx.Units.Load();
 
+            EnsureUnits("Volume", "Liters");
+            EnsureUnits("Volume", "Gallons");
+            EnsureUnits("Volume", "Quarts");
             EnsureUnits("Volume", "Cups");
             EnsureUnits("Volume", "Tablespoons");
             EnsureUnits("Volume", "Teaspooons");
@@ -27,6 +30,21 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
 
             this._ctx.SaveChanges();
 
+            EnsureUnitConversion("Volume", "Liters",      "Gallons",     0.2642);
+            EnsureUnitConversion("Volume", "Liters",      "Quarts",      1.0567);
+            EnsureUnitConversion("Volume", "Liters",      "Cups",        4.2268);
+            EnsureUnitConversion("Volume", "Liters",      "Tablespoons", 67.628);
+            EnsureUnitConversion("Volume", "Liters",      "Teaspooons",  202.8841);
+            EnsureUnitConversion("Volume", "Liters",      "Ounces",      33.814);
+            EnsureUnitConversion("Volume", "Gallons",     "Quarts",      4);
+            EnsureUnitConversion("Volume", "Gallons",     "Cups",        16);
+            EnsureUnitConversion("Volume", "Gallons",     "Tablespoons", 256);
+            EnsureUnitConversion("Volume", "Gallons",     "Teaspooons",  768);
+            EnsureUnitConversion("Volume", "Gallons",     "Ounces",      128);
+            EnsureUnitConversion("Volume", "Quarts",      "Cups",        4);
+            EnsureUnitConversion("Volume", "Quarts",      "Tablespoons", 64);
+            EnsureUnitConversion("Volume", "Quarts",      "Teaspooons",  192);
+            EnsureUnitConversion("Volume", "Quarts",      "Ounces",      32);
             EnsureUnitConversion("Volume", "Cups",        "Tablespoons", 16);
             EnsureUnitConversion("Volume", "Cups",        "Teaspooons",  48);
             EnsureUnitConversion("Volume", "Cups",        "Ounces",      8);
@@ -71,7 +89,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
                 this._ctx.Add(unitConversionB);
             }
             else {
-                unitConversionB.Ratio = ratio;
+                unitConversionB.Ratio = 1 / ratio;
             }
         }
 

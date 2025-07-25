@@ -50,8 +50,8 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("NutrientId")
                         .HasColumnType("uuid");
 
-                    b.Property<short>("Quantity")
-                        .HasColumnType("smallint");
+                    b.Property<float>("Quantity")
+                        .HasColumnType("real");
 
                     b.HasKey("Id");
 
@@ -83,11 +83,11 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<float>("Amount")
-                        .HasColumnType("real");
-
                     b.Property<Guid>("FoodItemId")
                         .HasColumnType("uuid");
+
+                    b.Property<float>("Quantity")
+                        .HasColumnType("real");
 
                     b.Property<Guid?>("UnitId")
                         .HasColumnType("uuid");

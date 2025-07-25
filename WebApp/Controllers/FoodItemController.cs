@@ -17,20 +17,9 @@ namespace SnackAndTrack.WebApp.Controllers {
         // GET: api/FoodItems
         [HttpGet]
         public async Task<ActionResult<IEnumerable<FoodItemModel>>> GetFoodItems() {
-            return await this
-                ._context
-                .FoodItems
-                .Include(fi => fi.FoodItemNutrients)
+            return await FoodItemBaseQuery()
                 .Select(
-                    fi => new FoodItemModel {
-                        Id = fi.Id
-                      , Name = fi.Name
-                      , Brand = fi.Brand
-                      , Nutrients = fi.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient {
-                            Name = fin.Nutrient.Name
-                          , Quantity = fin.Quantity
-                        }).ToArray()
-                    }
+                    fi => ConvertEntityToModel(fi)
                 )
                 .ToListAsync();
         }
@@ -39,7 +28,8 @@ namespace SnackAndTrack.WebApp.Controllers {
         [HttpGet("{id}")]
         public async Task<ActionResult<FoodItemModel>> GetFoodItem(Guid id)
         {
-            var foodItem = await this._context.FoodItems.Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient).SingleAsync(fi => fi.Id == id);
+            var foodItem = await FoodItemBaseQuery()
+                .SingleOrDefaultAsync(fi => fi.Id == id);
 
             if (foodItem == null)
             {
@@ -49,7 +39,18 @@ namespace SnackAndTrack.WebApp.Controllers {
             return ConvertEntityToModel(foodItem);
         }
 
-        private static ActionResult<FoodItemModel> ConvertEntityToModel(FoodItem foodItem)
+        private IQueryable<FoodItem> FoodItemBaseQuery()
+        {
+            // The auto-refactor wanted this to return IIncludableQueryable<FoodItem, Unit>,
+            // but that is to specific.
+            return this
+                ._context
+                .FoodItems
+                .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
+                .Include(fi => fi.ServingSizes).ThenInclude(s => s.Unit);
+        }
+
+        private static FoodItemModel ConvertEntityToModel(FoodItem foodItem)
         {
             return new FoodItemModel
             {
@@ -60,6 +61,10 @@ namespace SnackAndTrack.WebApp.Controllers {
                 {
                     Name = fin.Nutrient.Name
                   , Quantity = fin.Quantity
+                }).ToArray()
+              , ServingSizes = foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
+                    UnitId = s.Unit.Id
+                  , Quantity = s.Quantity
                 }).ToArray()
             };
         }

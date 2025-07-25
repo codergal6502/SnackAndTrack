@@ -3,7 +3,7 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
     {
         public required Guid Id { get; set; }
         public required Unit Unit { get; set; }
-        public required float Amount { get; set; }
+        public required Single Quantity { get; set; }
         public required FoodItem FoodItem { get; set; }
     }
 }

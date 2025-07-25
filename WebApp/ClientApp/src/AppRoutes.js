@@ -1,5 +1,3 @@
-// import { Counter } from "./components/Counter";
-// import { FetchData } from "./components/FetchData";
 import { Home } from "./components/Home";
 import FoodItemList from './components/FoodItemList';
 import FoodItemForm from "./components/FoodItemForm";
@@ -19,7 +17,7 @@ const AppRoutes = [
   },
   {
     path: '/fooditemform/:id',
-    element: <FoodItemForm />, // Route to display the form for editing an existing food item
+    element: <FoodItemForm />,
   },
 ];
 
