@@ -41,6 +41,24 @@ const FoodItemForm = () => {
         setFoodItem({ ...foodItem, servingSizes: servingSizes });
     }
 
+    const moveServingSizeUp = (index) => {
+        if (index > 0) {
+            const servingSizesBefore = foodItem.servingSizes.slice(0, index - 1);
+            const servingSizesAfter  = foodItem.servingSizes.slice(index + 1);
+            const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index], foodItem.servingSizes[index - 1], ...servingSizesAfter];
+            setFoodItem({ ...foodItem, servingSizes: servingSizes});
+        }
+    }
+
+    const moveServingSizeDown = (index) => {
+        if (index < foodItem.servingSizes.length - 1) {
+            const servingSizesBefore = foodItem.servingSizes.slice(0, index);
+            const servingSizesAfter  = foodItem.servingSizes.slice(index + 2);
+            const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index + 1], foodItem.servingSizes[index], ...servingSizesAfter];
+            setFoodItem({ ...foodItem, servingSizes: servingSizes});
+        }
+    }
+
     const handleNutrientChange = (index, e) => {
         const { name, value } = e.target;
         const nutrients = [...foodItem.nutrients];
@@ -124,6 +142,12 @@ const FoodItemForm = () => {
                             placeholder="Quantity"
                             required
                         />
+                    </div>
+                    <div class="col-auto align-self-end">
+                        <div class="btn-group" role="group" aria-label="Button group">
+                            <button type="button" aria-label='Move Up' class="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i class="bi bi-arrow-up"></i></button>
+                            <button type="button" aria-label='Move Down' class="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i class="bi bi-arrow-down"></i></button>
+                        </div>
                     </div>
                     <div className="col-auto align-self-end">
                         <button type="button" className="btn btn-danger" onClick={() => removeServingSize(index)}>Remove</button>
