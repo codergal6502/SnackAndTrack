@@ -44,6 +44,9 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<short>("DisplayOrder")
+                        .HasColumnType("smallint");
+
                     b.Property<Guid>("FoodItemId")
                         .HasColumnType("uuid");
 
@@ -82,6 +85,9 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<short>("DisplayOrder")
+                        .HasColumnType("smallint");
 
                     b.Property<Guid>("FoodItemId")
                         .HasColumnType("uuid");

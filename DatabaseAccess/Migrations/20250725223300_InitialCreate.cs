@@ -52,7 +52,8 @@ namespace DatabaseAccess.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     FoodItemId = table.Column<Guid>(type: "uuid", nullable: false),
                     NutrientId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Quantity = table.Column<float>(type: "real", nullable: false)
+                    Quantity = table.Column<float>(type: "real", nullable: false),
+                    DisplayOrder = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -78,7 +79,8 @@ namespace DatabaseAccess.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UnitId = table.Column<Guid>(type: "uuid", nullable: true),
                     Quantity = table.Column<float>(type: "real", nullable: false),
-                    FoodItemId = table.Column<Guid>(type: "uuid", nullable: false)
+                    FoodItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DisplayOrder = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {

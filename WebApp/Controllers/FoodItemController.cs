@@ -46,8 +46,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             return this
                 ._context
                 .FoodItems
-                .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
-                .Include(fi => fi.ServingSizes).ThenInclude(s => s.Unit);
+                .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Nutrient)
+                .Include(fi => fi.ServingSizes.OrderBy(s => s.DisplayOrder)).ThenInclude(s => s.Unit);
         }
 
         private static FoodItemModel ConvertEntityToModel(FoodItem foodItem)
@@ -125,7 +125,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             List<FoodItemModel.ServingSize> servingSizeModels = model.ServingSizes.ToList();
             List<ServingSize> existingServingSizes = foodItem.ServingSizes.ToList();
 
-            foreach (var servingSizeModel in servingSizeModels) {
+            foreach (var i in servingSizeModels.Select((x, i) => new { ServingSizeModel = x, Index = (Int16) i})) {
+                var servingSizeModel = i.ServingSizeModel;
                 var existingServingSize = existingServingSizes.SingleOrDefault(s => s.Unit.Id == servingSizeModel.UnitId);
 
                 Unit unit = await _context.Units.SingleOrDefaultAsync(u => u.Id == servingSizeModel.UnitId);
@@ -136,13 +137,14 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                 if (null == existingServingSize) {
 
-                    ServingSize servingSize = new ServingSize { Id = Guid.NewGuid(), FoodItem = foodItem, Quantity = servingSizeModel.Quantity, Unit = unit };
+                    ServingSize servingSize = new ServingSize { Id = Guid.NewGuid(), FoodItem = foodItem, Quantity = servingSizeModel.Quantity, Unit = unit, DisplayOrder =  i.Index };
                     this._context.Add(servingSize);
                     foodItem.ServingSizes.Add(servingSize);
                 }
                 else {
                     existingServingSize.Unit = unit;
                     existingServingSize.Quantity = servingSizeModel.Quantity;
+                    existingServingSize.DisplayOrder = i.Index;
 
                     // Any that are left at the end should be removed from the database.
                     existingServingSizes.Remove(existingServingSize);
@@ -162,8 +164,10 @@ namespace SnackAndTrack.WebApp.Controllers {
             List<FoodItemModel.Nutrient> nutrientModels = model.Nutrients.ToList();
             List<FoodItemNutrient> existingFoodItemNutrients = foodItem.FoodItemNutrients.ToList();
 
-            foreach (var nutritionModel in nutrientModels)
+            foreach (var i in nutrientModels.Select((x, i) => new { NutrientModel = x, Index = (Int16) i }))
+            // foreach (var nutritionModel in nutrientModels)
             {
+                var nutritionModel = i.NutrientModel;
                 var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Name == nutritionModel.Name);
 
                 if (null == existingFoodItemNutrient)
@@ -188,11 +192,13 @@ namespace SnackAndTrack.WebApp.Controllers {
                       , FoodItem = foodItem
                       , Nutrient = nutrient
                       , Quantity = nutritionModel.Quantity
+                      , DisplayOrder = i.Index
                     });
                 }
                 else
                 {
                     existingFoodItemNutrient.Quantity = nutritionModel.Quantity;
+                    existingFoodItemNutrient.DisplayOrder = i.Index;
 
                     // Any that are left at the end should be removed from the database.
                     existingFoodItemNutrients.Remove(existingFoodItemNutrient);

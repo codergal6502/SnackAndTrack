@@ -5,5 +5,6 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
         public required Unit Unit { get; set; }
         public required Single Quantity { get; set; }
         public required FoodItem FoodItem { get; set; }
+        public required Int16 DisplayOrder { get; set; }
     }
 }

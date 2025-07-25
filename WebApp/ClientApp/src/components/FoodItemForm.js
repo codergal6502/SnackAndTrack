@@ -75,6 +75,24 @@ const FoodItemForm = () => {
         setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
+    const moveNutrientUp = (index) => {
+        if (index > 0) {
+            const nutrientsBefore = foodItem.nutrients.slice(0, index - 1);
+            const nutrientsAfter  = foodItem.nutrients.slice(index + 1);
+            const nutrients = [...nutrientsBefore, foodItem.nutrients[index], foodItem.nutrients[index - 1], ...nutrientsAfter];
+            setFoodItem({ ...foodItem, nutrients: nutrients});
+        }
+    }
+
+    const moveNutrientDown = (index) => {
+        if (index < foodItem.nutrients.length - 1) {
+            const nutrientsBefore = foodItem.nutrients.slice(0, index);
+            const nutrientsAfter  = foodItem.nutrients.slice(index + 2);
+            const nutrients = [...nutrientsBefore, foodItem.nutrients[index + 1], foodItem.nutrients[index], ...nutrientsAfter];
+            setFoodItem({ ...foodItem, nutrients: nutrients});
+        }
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (id) {
@@ -102,25 +120,25 @@ const FoodItemForm = () => {
             <h4>Food Item</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
-                    <label for="foodItem-name" className="form-label">Name:</label>
+                    <label htmlFor="foodItem-name" className="form-label">Name:</label>
                     <input
                         id="foodItem-name"
                         type="text"
                         name="name"
                         className="form-control"
-                        value={foodItem.name}
+                        value={foodItem?.name}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="me-3">
-                    <label for="foodItem-brand" className="form-label">Brand:</label>
+                    <label htmlFor="foodItem-brand" className="form-label">Brand:</label>
                     <input
                         id="foodItem-brand"
                         type="text"
                         name="brand"
                         className="form-control"
-                        value={foodItem.brand}
+                        value={foodItem?.brand}
                         onChange={handleChange}
                     />
                 </div>
@@ -131,7 +149,7 @@ const FoodItemForm = () => {
                 <div key={index} className="row mb-3">
                     <UnitSelector name="unitId" idPrefix="foodItem-" idSuffix={`-${index}`} onUnitChange={(e) => handleServingSizeChange(index, e)} unitType={servingSize.unitType} unitId={servingSize.unitId} />
                     <div className="col">
-                        <label for={`foodItem-quantity-${index}`}>Quantity:</label>
+                        <label htmlFor={`foodItem-quantity-${index}`}>Quantity:</label>
                         <input
                             id={`foodItem-quantity-${index}`}
                             type="number"
@@ -143,10 +161,10 @@ const FoodItemForm = () => {
                             required
                         />
                     </div>
-                    <div class="col-auto align-self-end">
-                        <div class="btn-group" role="group" aria-label="Button group">
-                            <button type="button" aria-label='Move Up' class="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i class="bi bi-arrow-up"></i></button>
-                            <button type="button" aria-label='Move Down' class="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i class="bi bi-arrow-down"></i></button>
+                    <div className="col-auto align-self-end">
+                        <div className="btn-group" role="group" aria-label="Button group">
+                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
                         </div>
                     </div>
                     <div className="col-auto align-self-end">
@@ -159,7 +177,7 @@ const FoodItemForm = () => {
             {foodItem.nutrients.map((nutrient, index) => (
                 <div key={index} className="row mb-3">
                     <div className="col">
-                        <label for={`foodItem-nutrient-${index}`}>Nutrient</label>
+                        <label htmlFor={`foodItem-nutrient-${index}`}>Nutrient</label>
                         <input
                             id={`foodItem-nutrient-${index}`}
                             type="text"
@@ -172,7 +190,7 @@ const FoodItemForm = () => {
                         />
                     </div>
                     <div className="col">
-                        <label for={`foodItem-nutrient-${index}`}>Quantity</label>
+                        <label htmlFor={`foodItem-nutrient-${index}`}>Quantity</label>
                         <input
                             id={`foodItem-nutrient-${index}`}
                             type="number"
@@ -185,7 +203,11 @@ const FoodItemForm = () => {
                         />
                     </div>
                     <div className="col-auto align-self-end">
-                        <button type="button" className="btn btn-danger" onClick={() => removeNutrient(index)}>Remove</button>
+                        <div className="btn-group" role="group" aria-label="Button group">
+                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
+                        </div>
                     </div>
                 </div>
             ))}
