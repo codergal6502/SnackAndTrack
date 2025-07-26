@@ -1,45 +1,43 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const FoodItemList = () => {
-    const [foodItems, setFoodItems] = useState([]);
+const RecipeList = () => {
+    const [recipes, setRecipes] = useState([]);
 
     useEffect(() => {
-        fetchFoodItems();
+        fetchRecipes();
     }, []);
 
-    const fetchFoodItems = async () => {
-        const response = await fetch('/api/fooditems');
+    const fetchRecipes = async () => {
+        const response = await fetch('/api/recipes');
         const data = await response.json();
-        setFoodItems(data);
+        setRecipes(data);
     };
 
     const handleDelete = async (id) => {
-        await fetch(`/api/fooditems/${id}`, {
+        await fetch(`/api/recipes/${id}`, {
             method: 'DELETE',
         });
-        fetchFoodItems();
+        fetchRecipes();
     };
 
     return (
         <div>
-            <h1>Food Items</h1>
-            <Link to="/fooditemform" className="btn btn-primary mb-3">Add Food Item</Link>
+            <h1>Recipes</h1>
+            <Link to="/recipeform" className="btn btn-primary mb-3">Add Recipe</Link>
             <table className="table">
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Brand</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {foodItems.map((item, index) => (
+                    {recipes.map((item, index) => (
                         <tr key={index}>
                             <td>{item.name}</td>
-                            <td>{item.brand}</td>
                             <td>
-                                <Link to={`/fooditemform/${item.id}`} className="btn btn-warning">Edit</Link>
+                                <Link to={`/recipeform/${item.id}`} className="btn btn-warning">Edit</Link>
                                 <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Delete</button>
                             </td>
                         </tr>
@@ -50,4 +48,4 @@ const FoodItemList = () => {
     );
 };
 
-export default FoodItemList;
+export default RecipeList;

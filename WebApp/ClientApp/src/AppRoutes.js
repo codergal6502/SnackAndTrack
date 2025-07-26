@@ -1,6 +1,8 @@
 import { Home } from "./components/Home";
 import FoodItemList from './components/FoodItemList';
 import FoodItemForm from "./components/FoodItemForm";
+import RecipeList from "./components/RecipeList";
+import RecipeForm from "./components/RecipeForm";
 
 const AppRoutes = [
   {
@@ -18,6 +20,14 @@ const AppRoutes = [
   {
     path: '/fooditemform/:id',
     element: <FoodItemForm />,
+  },
+  {
+    path: '/recipelist',
+    element: <RecipeList />
+  },
+  {
+    path: '/recipeForm',
+    element: <RecipeForm />
   },
 ];
 
