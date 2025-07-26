@@ -10,9 +10,9 @@ const RecipeForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const [foodItemOptions, setFoodItemOptions] = useState([]);
+    const [foodItemOptions, setFoodItemOptions] = useState([[]]);
 
-    const fetchFoodItemOptions = async(q) => {
+    const fetchFoodItemOptions = async(index, q) => {
         if (!q) {
             return;
         }
@@ -28,7 +28,10 @@ const RecipeForm = () => {
                 value: item.id
               , label: item.name
             }));
-            setFoodItemOptions(options);
+
+            var newFoodItemOptions = [...foodItemOptions];
+            newFoodItemOptions[index] = options;
+            setFoodItemOptions(newFoodItemOptions);
         }
         catch (error) {
             console.error("Request to /api/fooditems failed.", error)
@@ -42,8 +45,8 @@ const RecipeForm = () => {
         setRecipe({ ...recipe, ingredients: ingredients});
     }
 
-    const handleIngredientLookupInputChange = (input) => {
-        fetchFoodItemOptions(input);
+    const handleIngredientLookupInputChange = (index, text) => {
+        fetchFoodItemOptions(index, text);
     };
 
     useEffect(() => {
@@ -59,29 +62,48 @@ const RecipeForm = () => {
     };
 
     const addIngredient = async () => {
-        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitName: "", quantityUnitId: "", quantity: 0 }]})
+        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitName: "", quantityUnitId: "", quantity: 0 }]});
+        setFoodItemOptions([...foodItemOptions, []]);
     };
 
     const removeIngredient = (index) => {
         const ingredients = recipe.ingredients.filter((_, i) => i !== index);
         setRecipe({ ...recipe, ingredients: ingredients });
+
+        const newFoodItemOptions = foodItemOptions.filter((_, i) => i !== index);
+        setFoodItemOptions(newFoodItemOptions);
     }
 
     const moveIngredientUp = (index) => {
         if (index > 0) {
-            const ingredientsBefore = recipe.ingredients.slice(0, index - 1);
-            const ingredientsAfter  = recipe.ingredients.slice(index + 1);
-            const ingredients = [...ingredientsBefore, recipe.ingredients[index], recipe.ingredients[index - 1], ...ingredientsAfter];
+            let ingredients = recipe.ingredients.slice();
+            let a = ingredients[index];
+            ingredients[index] = ingredients[index - 1];
+            ingredients[index - 1] = a;
             setRecipe({ ...recipe, ingredients: ingredients});
+
+            let options = foodItemOptions.slice();
+            let b = options[index];
+            options[index] = options[index - 1];
+            options[index - 1] = b;
+            setFoodItemOptions(options);
         }
     }
 
     const moveIngredientDown = (index) => {
         if (index < recipe.ingredients.length - 1) {
-            const ingredientsBefore = recipe.ingredients.slice(0, index);
-            const ingredientsAfter  = recipe.ingredients.slice(index + 2);
-            const ingredients = [...ingredientsBefore, recipe.ingredients[index + 1], recipe.ingredients[index], ...ingredientsAfter];
+            let ingredients = recipe.ingredients.slice();
+            let a = ingredients[index];
+            ingredients[index] = ingredients[index + 1];
+            ingredients[index + 1] = a;
             setRecipe({ ...recipe, ingredients: ingredients});
+
+            let options = foodItemOptions.slice();
+            let b = options[index];
+            options[index] = options[index + 1];
+            options[index + 1] = b;
+            setFoodItemOptions(options);
+
         }
     }
 
@@ -148,8 +170,8 @@ const RecipeForm = () => {
                     <div className="col">
                         <label htmlFor={`ingredient-selection-${index}`}>Ingredient:</label>
                         <Select
-                            options={foodItemOptions}
-                            onInputChange={handleIngredientLookupInputChange}
+                            options={foodItemOptions[index]}
+                            onInputChange={(text) => handleIngredientLookupInputChange(index, text)}
                             onChange={(selectedOption) => {
                                 const updatedIngredients = [...recipe.ingredients];
                                 updatedIngredients[index] = {
@@ -160,7 +182,7 @@ const RecipeForm = () => {
                                 setRecipe({ ...recipe, ingredients: updatedIngredients });
                             }}
                             isClearable
-                            value={foodItemOptions.find(option => option.value === ingredient.foodItemId) || null} // Set the value prop
+                            value={foodItemOptions[index].find(option => option.value === ingredient.foodItemId) || null} // Set the value prop
                         />
                     </div>
                     <div className="col">
