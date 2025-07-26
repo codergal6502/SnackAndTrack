@@ -246,7 +246,7 @@ const RecipeForm = () => {
                                 updateUnitTypesForIngredient(index, selectedOption?.value);
                             }}
                             isClearable
-                            value={ingredientFoodItemOptions[index].find(option => option.value === ingredient.foodItemId) || null} // Set the value prop
+                            value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null} // Set the value prop
                         />
                     </div>
                     <div className="col">

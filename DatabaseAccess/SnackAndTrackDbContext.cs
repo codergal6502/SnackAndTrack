@@ -11,5 +11,7 @@ namespace SnackAndTrack.DatabaseAccess {
         public required DbSet<Unit> Units { get; set; }
         public required DbSet<UnitConversion> UnitConversions { get; set; }
         public required DbSet<ServingSize> ServingSizes { get; set; }
+        public required DbSet<Recipe> Recipes { get; set; }
+        public required DbSet<RecipeIngredient> RecipeIngredients { get; set; }
     }
 }

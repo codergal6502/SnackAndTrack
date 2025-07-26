@@ -16,8 +16,25 @@ namespace SnackAndTrack.WebApp.Controllers {
 
         // GET: api/FoodItems
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<FoodItemModel>>> GetFoodItems() {
-            return await FoodItemBaseQuery()
+        public async Task<ActionResult<IEnumerable<FoodItemModel>>> GetFoodItems([FromQuery] String? q, [FromQuery] String? qName, [FromQuery] String? qBrand) {
+            IQueryable<FoodItem> foodItems = this._context.FoodItems;
+
+            if (!String.IsNullOrWhiteSpace(q)) {
+                q = q.Trim().ToLower();
+                foodItems = foodItems.Where(fi => fi.Name.ToLower().Contains(q) || fi.Brand.ToLower().Contains(q));
+            }
+
+            if (!String.IsNullOrWhiteSpace(qName)) {
+                qName = qName.Trim().ToLower();
+                foodItems = foodItems.Where(fi => fi.Name.ToLower().Contains(qName));
+            }
+
+            if (!String.IsNullOrWhiteSpace(qBrand)) {
+                qBrand = qBrand.Trim().ToLower();
+                foodItems = foodItems.Where(fi => fi.Brand.ToLower().Contains(qBrand));
+            }
+
+            return await foodItems
                 .Select(
                     fi => ConvertEntityToModel(fi)
                 )
@@ -28,7 +45,7 @@ namespace SnackAndTrack.WebApp.Controllers {
         [HttpGet("{id}")]
         public async Task<ActionResult<FoodItemModel>> GetFoodItem(Guid id)
         {
-            var foodItem = await FoodItemBaseQuery()
+            var foodItem = await SingleFoodItemBaseQuery()
                 .SingleOrDefaultAsync(fi => fi.Id == id);
 
             if (foodItem == null)
@@ -39,7 +56,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             return ConvertEntityToModel(foodItem);
         }
 
-        private IQueryable<FoodItem> FoodItemBaseQuery()
+        private IQueryable<FoodItem> SingleFoodItemBaseQuery()
         {
             // The auto-refactor wanted this to return IIncludableQueryable<FoodItem, Unit>,
             // but that is to specific.
@@ -57,12 +74,12 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = foodItem.Id
               , Name = foodItem.Name
               , Brand = foodItem.Brand
-              , Nutrients = foodItem.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient
+              , Nutrients = (null == foodItem.FoodItemNutrients) ? [] : foodItem.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient
                 {
                     Name = fin.Nutrient.Name
                   , Quantity = fin.Quantity
                 }).ToArray()
-              , ServingSizes = foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
+              , ServingSizes = (null == foodItem.ServingSizes) ? [] : foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
                     UnitId = s.Unit.Id
                   , UnitType = s.Unit.UnitType
                   , Quantity = s.Quantity
@@ -97,7 +114,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 return BadRequest();
             }
 
-            FoodItem foodItem = await FoodItemBaseQuery()
+            FoodItem foodItem = await SingleFoodItemBaseQuery()
                 .SingleAsync(fi => fi.Id == id);
 
             if (null == foodItem)
@@ -106,6 +123,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
 
             await PopulateFoodItem(model, foodItem);
+
+            await this._context.SaveChangesAsync();
 
             return NoContent();
         }

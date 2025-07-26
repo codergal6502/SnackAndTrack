@@ -9,6 +9,7 @@ const RecipeList = () => {
     }, []);
 
     const fetchRecipes = async () => {
+        debugger;
         const response = await fetch('/api/recipes');
         const data = await response.json();
         setRecipes(data);

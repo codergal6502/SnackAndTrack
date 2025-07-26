@@ -29,6 +29,10 @@ const AppRoutes = [
     path: '/recipeForm',
     element: <RecipeForm />
   },
+  {
+    path: '/recipeForm/:id',
+    element: <RecipeForm />
+  },
 ];
 
 export default AppRoutes;
