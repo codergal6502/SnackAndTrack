@@ -249,7 +249,7 @@ const RecipeForm = () => {
                         />
                     </div>
                     <div className='col'>
-                        <label htmlFor={`ingredient-unit-type-${index}`}>Ingredient:</label>
+                        <label htmlFor={`ingredient-unit-type-${index}`}>Unit Type:</label>
                         <Select
                             id={`ingredient-unit-type-${index}`}
                             options={ingredientUnitTypeOptions[index]}
@@ -260,7 +260,7 @@ const RecipeForm = () => {
                         />
                     </div>
                     <div className='col'>
-                        <label htmlFor={`ingredient-unit-${index}`}>Ingredient:</label>
+                        <label htmlFor={`ingredient-unit-${index}`}>Unit:</label>
                         <Select
                             id={`ingredient-unit-${index}`}
                             options={ingredientUnitOptions[index]}
