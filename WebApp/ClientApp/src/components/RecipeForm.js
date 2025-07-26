@@ -74,11 +74,11 @@ const RecipeForm = () => {
         setIngredientUnitTypeOptions(newUnitTypeOptions);
     };
 
-    const handleIngredientUnitTypeChange = async(index, unitTypeName) => {
+    const handleIngredientUnitTypeChange = async(index, unitTypeOption) => {
         const newUnitOptions = ingredientUnitOptions.slice();
 
-        if (unitTypeName) {
-            let url = `/api/lookup/units/${unitTypeName}`;
+        if (unitTypeOption?.value) {
+            let url = `/api/lookup/units/${unitTypeOption.value}`;
             try {
                 const units = await getJson(url);
                 const unitOptions = units.map(u => ({ value: u.id, label: u.unitName }));
@@ -92,7 +92,21 @@ const RecipeForm = () => {
             newUnitOptions[index] = [];
         }
         setIngredientUnitOptions(newUnitOptions);
+
+        const newIngredients = [...recipe.ingredients];
+        newIngredients[index].quantityUnitName = unitTypeOption?.value;
+
+        const newRecipe = { ...recipe, ingredients: newIngredients};
+        setRecipe(newRecipe);
     };
+
+    const handleIngredientUnitChange = async(index, unitOption) => {
+        const newIngredients = [...recipe.ingredients];
+        newIngredients[index].quantityUnitId = unitOption.value;
+
+        const newRecipe = { ...recipe, ingredients: newIngredients};
+        setRecipe(newRecipe);
+    }
 
     const handleIngredientLookupInputChange = (index, text) => {
         fetchIngredientFoodItemOptions(index, text);
@@ -253,10 +267,11 @@ const RecipeForm = () => {
                         <Select
                             id={`ingredient-unit-type-${index}`}
                             options={ingredientUnitTypeOptions[index]}
+                            name="quantityUnitName"
                             isClearable={false}
                             isSearchable={false}
                             isDisabled={false}
-                            onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption?.value)}
+                            onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption)}
                         />
                     </div>
                     <div className='col'>
@@ -264,9 +279,11 @@ const RecipeForm = () => {
                         <Select
                             id={`ingredient-unit-${index}`}
                             options={ingredientUnitOptions[index]}
+                            name="quantityUnitId"
                             isClearable={false}
                             isSearchable={false}
                             isDisabled={false}
+                            onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
                         />
                     </div>
                     <div className="col-auto align-self-end">
