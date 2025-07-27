@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SnackAndTrack.DatabaseAccess.Entities {
     public class Unit {
+        [Key]
         public virtual required Guid Id { get; set; }
         public virtual required String UnitName  { get; set; }
         public virtual required String UnitType  { get; set; }

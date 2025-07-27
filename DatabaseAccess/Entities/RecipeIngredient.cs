@@ -1,7 +1,10 @@
 
+using System.ComponentModel.DataAnnotations;
+
 namespace SnackAndTrack.DatabaseAccess.Entities {
     public class RecipeIngredient
     {
+        [Key]
         public virtual required Guid Id { get; set; }
         public virtual required Recipe Recipe { get; set; }
         public virtual required FoodItem FoodItem { get; set; }
