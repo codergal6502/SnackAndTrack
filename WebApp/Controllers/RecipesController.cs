@@ -50,7 +50,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             return this
                 ._context
                 .Recipes
-                    .Include(r => r.RecipeIngredients.OrderBy(ri => ri.DisplayOrder)).ThenInclude(ri => ri.FoodItem)
+                    .Include(r => r.RecipeIngredients.OrderBy(ri => ri.DisplayOrder)).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.ServingSizes).ThenInclude(s => s.Unit)
                     .Include(r => r.RecipeIngredients.OrderBy(ri => ri.DisplayOrder)).ThenInclude(ri => ri.Unit);
         }
 
@@ -115,8 +115,10 @@ namespace SnackAndTrack.WebApp.Controllers {
                         FoodItemId = ri.FoodItem.Id
                       , FoodItemName = ri.FoodItem.Name
                       , QuantityUnitId = ri.Unit.Id
+                      , QuantityUnitType = ri.Unit.UnitType
                       , QuantityUnitName = ri.Unit.UnitName
-                      , Quantity = ri.Quantity 
+                      , Quantity = ri.Quantity
+                      , QuantityUnitTypeOptions = ri.FoodItem.ServingSizes.Select(s => s.Unit.UnitType).Distinct().ToArray()
                     }
                 ).ToArray()
             };

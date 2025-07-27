@@ -9,9 +9,11 @@ namespace SnackAndTrack.WebApp.Models {
         public class Ingredient { 
             public String? FoodItemName { get; set; }
             public required Guid FoodItemId { get; set; }
+            public String? QuantityUnitType { get; set; }
             public String? QuantityUnitName { get; set; }
             public required Guid QuantityUnitId { get; set; }
             public required Single Quantity { get; set; }
+            public String[]? QuantityUnitTypeOptions { get; set; }
         }
     }
 }

@@ -5,8 +5,6 @@ import { getJson } from '../utilities/utilities';
 
 import Select from 'react-select';
 
-import UnitSelector from './UnitSelector'
-
 const RecipeForm = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [] });
     const { id } = useParams();
@@ -17,22 +15,71 @@ const RecipeForm = () => {
     const [ingredientUnitTypeOptions, setIngredientUnitTypeOptions] = useState([]);
     const [ingredientUnitOptions, setIngredientUnitOptions] = useState([]);
 
+    const [units, setUnits] = useState([]);
+
+    useEffect(() => {
+        const fetchUnits = async () => {
+            let url = `/api/lookup/units`
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+                }
+
+                const units = await response.json();
+                setUnits(units);
+            }
+            catch (error) {
+                console.error(`Request to ${url} failed.`, error)
+                setUnits([]);
+            }
+        }
+        
+        fetchUnits();
+    }, []);
+
+    // let units;
+
+    // // todo: this should be cached somehow, probably globally; this
+    // // hypothetically could result in race conditions with /recipe/{id}
+    // (async ( ) => {
+    //     let url = `/api/lookup/units`
+    //     try {
+    //         const response = await fetch(url);
+    //         if (!response.ok) {
+    //             throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+    //         }
+
+    //         return await response.json();
+    //     }
+    //     catch (error) {
+    //         console.error(`Request to ${url} failed.`, error)
+    //         return [ ];
+    //     }
+    // })().then((result) => { units = result; });
+
     const fetchIngredientFoodItemOptions = async(index, q) => {
+        const response = await fetch(`/api/fooditems?q=${q}`);
+        if (!response.ok) {
+            throw new Error("Request to /api/fooditems reponse status is " + response.status + ".");
+        }
+
+        const data = await response.json();
+        const options = data.map(item => ({
+            value: item.id
+          , label: item.name
+        }));
+
+        return options;
+    }
+
+    const fetchAndSetIngredientFoodItemOptions = async(index, q) => {
         if (!q) {
             return;
         }
-
+        
         try {
-            const response = await fetch(`/api/fooditems?q=${q}`);
-            if (!response.ok) {
-                throw new Error("Request to /api/fooditems reponse status is " + response.status + ".");
-            }
-
-            const data = await response.json();
-            const options = data.map(item => ({
-                value: item.id
-              , label: item.name
-            }));
+            const options = await fetchIngredientFoodItemOptions(index, q);
 
             var newFoodItemOptions = [...ingredientFoodItemOptions];
             newFoodItemOptions[index] = options;
@@ -50,10 +97,14 @@ const RecipeForm = () => {
         setRecipe({ ...recipe, ingredients: ingredients});
     }
 
-    const updateUnitTypesForIngredient = async(index, ingredientId) => {
+    const updateUnitTypesForIngredient = async(index, foodItemId) => {
+        // You can't call this three times in a row when the data first loads because
+        // ingredientUnitTypeOptions doesn't get updated.
+        // Quoth https://stackoverflow.com/a/61951338:
+        //     React state updates are asynchronous, i.e. queued up for the next render
         const newUnitTypeOptions = ingredientUnitTypeOptions.slice();
-        if (ingredientId) {
-            let url = `/api/fooditems/${ingredientId}`
+        if (foodItemId) {
+            let url = `/api/fooditems/${foodItemId}`
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -78,15 +129,19 @@ const RecipeForm = () => {
         const newUnitOptions = ingredientUnitOptions.slice();
 
         if (unitTypeOption?.value) {
-            let url = `/api/lookup/units/${unitTypeOption.value}`;
-            try {
-                const units = await getJson(url);
-                const unitOptions = units.map(u => ({ value: u.id, label: u.unitName }));
-                newUnitOptions[index] = unitOptions;
-            }
-            catch (error) {
-                console.error(`Request to ${url} failed.`, error)
-            }
+            // let url = `/api/lookup/units/${unitTypeOption.value}`;
+            // try {
+            //     const units = await getJson(url);
+            //     const unitOptions = units.map(u => ({ value: u.id, label: u.unitName }));
+            //     newUnitOptions[index] = unitOptions;
+            // }
+            // catch (error) {
+            //     console.error(`Request to ${url} failed.`, error)
+            // }
+
+            const unitsForType = units.filter(u => u.unitType === unitTypeOption.value);
+            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.unitName }));
+            newUnitOptions[index] = unitOptions;
         }
         else {
             newUnitOptions[index] = [];
@@ -94,7 +149,7 @@ const RecipeForm = () => {
         setIngredientUnitOptions(newUnitOptions);
 
         const newIngredients = [...recipe.ingredients];
-        newIngredients[index].quantityUnitName = unitTypeOption?.value;
+        newIngredients[index].quantityUnitType = unitTypeOption?.value;
 
         const newRecipe = { ...recipe, ingredients: newIngredients};
         setRecipe(newRecipe);
@@ -109,23 +164,52 @@ const RecipeForm = () => {
     }
 
     const handleIngredientLookupInputChange = (index, text) => {
-        fetchIngredientFoodItemOptions(index, text);
+        fetchAndSetIngredientFoodItemOptions(index, text);
     };
 
     useEffect(() => {
         if (id) {
-            fetchRecipe(id);
+            fetchUnits().then((fetchedUnits) => fetchRecipe(id, fetchedUnits));
         }
     }, [id]);
 
-    const fetchRecipe = async (id) => {
+    const fetchUnits = async () => {
+        let url = `/api/lookup/units`
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+            }
+
+            const fetchedUnits = await response.json();
+            setUnits(fetchedUnits);
+
+            return fetchedUnits;
+        }
+        catch (error) {
+            console.error(`Request to ${url} failed.`, error)
+            setUnits([]);
+        }
+    }
+
+    const fetchRecipe = async (id, initialUnits) => {
         const response = await fetch(`/api/recipes/${id}`);
         const data = await response.json();
+
+        const initialIngredientFoodItemOptions = data.ingredients.map((i) => [ { value: i.foodItemId, label: i.foodItemName } ]);
+        setIngredientFoodItemOptions(initialIngredientFoodItemOptions);
+
+        const initialUnitTypeOptions = data.ingredients.map((i) => i.quantityUnitTypeOptions.map(uto => ({ value: uto, label: uto })));
+        setIngredientUnitTypeOptions(initialUnitTypeOptions);
+
+        const initialUnitOptions = data.ingredients.map((i) => initialUnits.filter(u => u.unitType === i.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
+        setIngredientUnitOptions(initialUnitOptions);
+
         setRecipe(data);
     };
 
     const addIngredient = async () => {
-        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitName: "", quantityUnitId: "", quantity: 0 }]});
+        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitType: "", quantityUnitId: "", quantity: 0 }]});
         setIngredientFoodItemOptions([...ingredientFoodItemOptions, []]);
     };
 
@@ -246,7 +330,7 @@ const RecipeForm = () => {
                                 updateUnitTypesForIngredient(index, selectedOption?.value);
                             }}
                             isClearable
-                            value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null} // Set the value prop
+                            value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null}
                         />
                     </div>
                     <div className="col">
@@ -267,11 +351,13 @@ const RecipeForm = () => {
                         <Select
                             id={`ingredient-unit-type-${index}`}
                             options={ingredientUnitTypeOptions[index]}
-                            name="quantityUnitName"
+                            name="quantityUnitType"
                             isClearable={false}
                             isSearchable={false}
                             isDisabled={false}
                             onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption)}
+                            // value={ingredient.quantityUnitName}
+                            value={ingredientUnitTypeOptions[index]?.find(option => option.value == ingredient.quantityUnitType) || null}
                         />
                     </div>
                     <div className='col'>
@@ -284,6 +370,7 @@ const RecipeForm = () => {
                             isSearchable={false}
                             isDisabled={false}
                             onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
+                            value={ingredientUnitOptions[index]?.find(option => option.value === ingredient.quantityUnitId) || null}
                         />
                     </div>
                     <div className="col-auto align-self-end">

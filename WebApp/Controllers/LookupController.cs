@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
+using SnackAndTrack.DatabaseAccess.Entities;
 using SnackAndTrack.WebApp.Models;
 
 namespace SnackAndTrack.WebApp.Controllers {
@@ -36,6 +37,11 @@ namespace SnackAndTrack.WebApp.Controllers {
               , UnitName = u.UnitName
               , UnitType = u.UnitType
             }).ToListAsync();
+        }
+
+        [HttpGet("units")]
+        public async Task<ActionResult<IEnumerable<Unit>>> GetUnits() {
+            return await this._context.Units.ToListAsync();
         }
     }
 }
