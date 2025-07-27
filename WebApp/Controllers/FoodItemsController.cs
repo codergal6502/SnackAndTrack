@@ -148,7 +148,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 var servingSizeModel = i.ServingSizeModel;
                 var existingServingSize = existingServingSizes.SingleOrDefault(s => s.Unit.Id == servingSizeModel.UnitId);
 
-                Unit unit = await _context.Units.SingleOrDefaultAsync(u => u.Id == servingSizeModel.UnitId);
+                Unit? unit = await _context.Units.SingleOrDefaultAsync(u => u.Id == servingSizeModel.UnitId);
 
                 if (null == unit) {
                     throw new SnackAndTrackControllerException($"Searched for unit {servingSizeModel.UnitId} but 0 or multiple.");
@@ -191,7 +191,7 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                 if (null == existingFoodItemNutrient)
                 {
-                    Nutrient nutrient = await _context.Nutrients.SingleOrDefaultAsync(n => n.Name == nutritionModel.Name);
+                    Nutrient nutrient = await _context.Nutrients.SingleAsync(n => n.Name == nutritionModel.Name);
 
                     if (null == nutrient)
                     {

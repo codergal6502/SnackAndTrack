@@ -6,7 +6,7 @@ import { getJson } from '../utilities/utilities';
 import Select from 'react-select';
 
 const RecipeForm = () => {
-    const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [] });
+    const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -15,48 +15,10 @@ const RecipeForm = () => {
     const [ingredientUnitTypeOptions, setIngredientUnitTypeOptions] = useState([]);
     const [ingredientUnitOptions, setIngredientUnitOptions] = useState([]);
 
+    const [amountMadeUnitOptions, setAmountMadeUnitOptions] = useState([]);
+
+    const [unitTypes, setUnitTypes] = useState([]);
     const [units, setUnits] = useState([]);
-
-    useEffect(() => {
-        const fetchUnits = async () => {
-            let url = `/api/lookup/units`
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-                }
-
-                const units = await response.json();
-                setUnits(units);
-            }
-            catch (error) {
-                console.error(`Request to ${url} failed.`, error)
-                setUnits([]);
-            }
-        }
-        
-        fetchUnits();
-    }, []);
-
-    // let units;
-
-    // // todo: this should be cached somehow, probably globally; this
-    // // hypothetically could result in race conditions with /recipe/{id}
-    // (async ( ) => {
-    //     let url = `/api/lookup/units`
-    //     try {
-    //         const response = await fetch(url);
-    //         if (!response.ok) {
-    //             throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-    //         }
-
-    //         return await response.json();
-    //     }
-    //     catch (error) {
-    //         console.error(`Request to ${url} failed.`, error)
-    //         return [ ];
-    //     }
-    // })().then((result) => { units = result; });
 
     const fetchIngredientFoodItemOptions = async(index, q) => {
         const response = await fetch(`/api/fooditems?q=${q}`);
@@ -129,16 +91,6 @@ const RecipeForm = () => {
         const newUnitOptions = ingredientUnitOptions.slice();
 
         if (unitTypeOption?.value) {
-            // let url = `/api/lookup/units/${unitTypeOption.value}`;
-            // try {
-            //     const units = await getJson(url);
-            //     const unitOptions = units.map(u => ({ value: u.id, label: u.unitName }));
-            //     newUnitOptions[index] = unitOptions;
-            // }
-            // catch (error) {
-            //     console.error(`Request to ${url} failed.`, error)
-            // }
-
             const unitsForType = units.filter(u => u.unitType === unitTypeOption.value);
             const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.unitName }));
             newUnitOptions[index] = unitOptions;
@@ -184,6 +136,8 @@ const RecipeForm = () => {
             const fetchedUnits = await response.json();
             setUnits(fetchedUnits);
 
+            setUnitTypes(fetchedUnits.map(u => u.unitType).filter((value, index, array) => array.indexOf(value) === index).map(u => ({ value: u, label: u })));
+
             return fetchedUnits;
         }
         catch (error) {
@@ -199,14 +153,95 @@ const RecipeForm = () => {
         const initialIngredientFoodItemOptions = data.ingredients.map((i) => [ { value: i.foodItemId, label: i.foodItemName } ]);
         setIngredientFoodItemOptions(initialIngredientFoodItemOptions);
 
-        const initialUnitTypeOptions = data.ingredients.map((i) => i.quantityUnitTypeOptions.map(uto => ({ value: uto, label: uto })));
-        setIngredientUnitTypeOptions(initialUnitTypeOptions);
+        const initialIngredientUnitTypeOptions = data.ingredients.map((i) => i.quantityUnitTypeOptions.map(uto => ({ value: uto, label: uto })));
+        setIngredientUnitTypeOptions(initialIngredientUnitTypeOptions);
 
-        const initialUnitOptions = data.ingredients.map((i) => initialUnits.filter(u => u.unitType === i.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
-        setIngredientUnitOptions(initialUnitOptions);
+        const initialIngredientUnitOptions = data.ingredients.map((i) => initialUnits.filter(u => u.unitType === i.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
+        setIngredientUnitOptions(initialIngredientUnitOptions);
+
+        const amountsMadeInitialUnitOptions = data.amountsMade.map((am) => initialUnits.filter(u => u.unitType === am.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
+        setAmountMadeUnitOptions(amountsMadeInitialUnitOptions);
 
         setRecipe(data);
     };
+
+    const handleAmountMadeChange = (index, e) => {
+        const { name, value } = e.target;
+        const amountsMade = [...recipe.amountsMade];
+        amountsMade[index] = { ...amountsMade[index], [name]: value };
+        setRecipe({ ...recipe, amountsMade: amountsMade});
+    }
+
+    const addAmountMade = async () => {
+        setRecipe({ ...recipe, amountsMade: [...recipe.amountsMade, { quantityUnitType: "", quantityUnitId: "", quantity: 0 }]});
+        setAmountMadeUnitOptions([...amountMadeUnitOptions, []]);
+    };
+
+    const removeAmountMade = (index) => {
+        const amountsMade = recipe.amountsMade.filter((_, i) => i !== index);
+        setRecipe({ ...recipe, amountsMade: amountsMade });
+    }
+
+    const moveAmountMadeUp = (index) => {
+        if (index > 0) {
+            let amountsMade = recipe.amountsMade.slice();
+            let a = amountsMade[index];
+            amountsMade[index] = amountsMade[index - 1];
+            amountsMade[index - 1] = a;
+            setRecipe({ ...recipe, amountsMade: amountsMade});
+
+            let options = amountMadeUnitOptions.slice();
+            let b = options[index];
+            options[index] = options[index - 1];
+            options[index - 1] = b;
+            setAmountMadeUnitOptions(options);
+        }
+    }
+
+    const moveAmountMadeDown = (index) => {
+        if (index < recipe.amountsMade.length - 1) {
+            let amountsMade = recipe.amountsMade.slice();
+            let a = amountsMade[index];
+            amountsMade[index] = amountsMade[index + 1];
+            amountsMade[index + 1] = a;
+            setRecipe({ ...recipe, amountsMade: amountsMade});
+
+            let options = amountMadeUnitOptions.slice();
+            let b = options[index];
+            options[index] = options[index + 1];
+            options[index + 1] = b;
+            setAmountMadeUnitOptions(options);
+
+        }
+    }
+
+    const handleAmountMadeUnitTypeChange = async(index, unitTypeOption) => {
+        const newUnitOptions = amountMadeUnitOptions.slice();
+
+        if (unitTypeOption?.value) {
+            const unitsForType = units.filter(u => u.unitType === unitTypeOption.value);
+            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.unitName }));
+            newUnitOptions[index] = unitOptions;
+        }
+        else {
+            newUnitOptions[index] = [];
+        }
+        setAmountMadeUnitOptions(newUnitOptions);
+
+        const newMadeAmounts = [...recipe.amountsMade];
+        newMadeAmounts[index].quantityUnitType = unitTypeOption?.value;
+
+        const newRecipe = { ...recipe, amountsMade: newMadeAmounts};
+        setRecipe(newRecipe);
+    };
+
+    const handleAmountMadeUnitChange = async(index, unitOption) => {
+        const newAmountsMade = [...recipe.amountsMade];
+        newAmountsMade[index].quantityUnitId = unitOption.value;
+
+        const newRecipe = { ...recipe, amountsMade: newAmountsMade};
+        setRecipe(newRecipe);
+    }
 
     const addIngredient = async () => {
         setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitType: "", quantityUnitId: "", quantity: 0 }]});
@@ -310,6 +345,60 @@ const RecipeForm = () => {
                 </div>
             </div>
 
+            <h5>Amount Made</h5>
+            {(recipe.amountsMade || []).map((amountMade, index) => (
+                <div key={index} className='row mb-3'>
+                    <div className="col">
+                        <label htmlFor={`amountMade-quantity-${index}`}>Quantity</label>
+                        <input
+                            id={`amountMade-quantity-${index}`}
+                            type="number"
+                            name="quantity"
+                            className="form-control"
+                            value={amountMade.quantity}
+                            onChange={(e) => handleAmountMadeChange(index, e)}
+                            placeholder="Quantity"
+                            required
+                        />
+                    </div>
+                    <div className='col'>
+                        <label htmlFor={`amountMade-unit-type-${index}`}>Unit Type:</label>
+                        <Select
+                            id={`amountMade-unit-type-${index}`}
+                            options={unitTypes}
+                            name="amountMadeUnitType"
+                            isClearable={false}
+                            isSearchable={false}
+                            isDisabled={false}
+                            onChange={(selectedOption) => handleAmountMadeUnitTypeChange(index, selectedOption)}
+                            value={unitTypes.find(option => option.value == amountMade.quantityUnitType) || null}
+                        />
+                    </div>
+                    <div className='col'>
+                        <label htmlFor={`amountMade-unit-${index}`}>Unit:</label>
+                        <Select
+                            id={`amountMade-unit-${index}`}
+                            options={amountMadeUnitOptions[index]}
+                            name="amountMadeUnitId"
+                            isClearable={false}
+                            isSearchable={false}
+                            isDisabled={false}
+                            onChange={(selectedOption) => handleAmountMadeUnitChange(index, selectedOption)}
+                            value={amountMadeUnitOptions[index]?.find(option => option.value === amountMade.quantityUnitId) || null}
+                        />
+                    </div>
+                    <div className="col-auto align-self-end">
+                        <div className="btn-group" role="group" aria-label="Button group">
+                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveAmountMadeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveAmountMadeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeAmountMade(index)}><i className="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            ))}
+
+            <button type="button" className="btn btn-secondary mb-3" onClick={addAmountMade}>Add Amount Made</button>
+
             <h5>Ingredients</h5>
 
             {recipe.ingredients.map((ingredient, index) => (
@@ -356,7 +445,6 @@ const RecipeForm = () => {
                             isSearchable={false}
                             isDisabled={false}
                             onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption)}
-                            // value={ingredient.quantityUnitName}
                             value={ingredientUnitTypeOptions[index]?.find(option => option.value == ingredient.quantityUnitType) || null}
                         />
                     </div>
