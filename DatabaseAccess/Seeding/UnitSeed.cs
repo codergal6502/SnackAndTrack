@@ -26,6 +26,8 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureUnits("Mass", "Ounces");
             EnsureUnits("Mass", "Pounds");
 
+            EnsureUnits("Serving", "Serving");
+
             this._ctx.UnitConversions.Include(uc => uc.FromUnit).Include(uc => uc.ToUnit).Load();
 
             this._ctx.SaveChanges();
