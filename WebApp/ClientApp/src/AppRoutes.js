@@ -3,6 +3,7 @@ import FoodItemList from './components/FoodItemList';
 import FoodItemForm from "./components/FoodItemForm";
 import RecipeList from "./components/RecipeList";
 import RecipeForm from "./components/RecipeForm";
+import RecipeCompute from "./components/RecipeCompute";
 
 const AppRoutes = [
   {
@@ -32,6 +33,10 @@ const AppRoutes = [
   {
     path: '/recipeForm/:id',
     element: <RecipeForm />
+  },
+  {
+    path: '/recipecompute/:id',
+    element: <RecipeCompute />
   },
 ];
 

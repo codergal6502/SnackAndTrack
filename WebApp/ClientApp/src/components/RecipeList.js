@@ -37,8 +37,13 @@ const RecipeList = () => {
                         <tr key={index}>
                             <td>{item.name}</td>
                             <td>
-                                <Link to={`/recipeform/${item.id}`} className="btn btn-warning">Edit</Link>
-                                <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Delete</button>
+                                <div className="btn-group" role="group" aria-label="Button group">
+                                    <Link to={`/recipeform/${item.id}`} className="btn btn-outline-secondary">Edit</Link>
+                                    <Link to={`/recipecompute/${item.id}`} className="btn btn-outline-secondary">Compute Nutrition</Link>
+                                </div>
+                                {/* <div className="btn-group" role="group" aria-label="Button group">
+                                    <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Delete</button>
+                                </div> */}
                             </td>
                         </tr>
                     ))}

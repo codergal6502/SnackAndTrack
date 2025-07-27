@@ -72,8 +72,6 @@ namespace SnackAndTrack.WebApp.Controllers {
 
             await this._context.SaveChangesAsync();
 
-            // ComputeFoodItemFor(recipe);
-
             return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, ConvertEntityToModel(recipe));
         }
 
@@ -95,14 +93,12 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
 
             await PopulateRecipe(model, recipe);
-            
-            // ComputeFoodItemFor(recipe);
 
             return NoContent();
         }
 
         [HttpGet("computeFoodItem/{id}")]
-        public async Task<IActionResult> ComputeFoodItem(Guid id) {
+        public async Task<ActionResult<RecipeComputedFoodItemTableModel>> ComputeFoodItem(Guid id) {
             
             var unit = _context.Units.Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit).Include(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit).Single(u => u.UnitName == "Teaspoons");
             var conversions = unit.FromUnitConversions.ToList();
@@ -117,12 +113,39 @@ namespace SnackAndTrack.WebApp.Controllers {
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit)
                 .SingleAsync(r => r.Id == id);
-            ComputeFoodItemFor(recipe);
-            throw new NotImplementedException();
+
+            var table = ComputeFoodItemFor(recipe);
+            
+            return table;
         }
 
-        private void ComputeFoodItemFor(Recipe recipe)
+        public class RecipeComputedFoodItemTableModel {
+            public class NutrientSummary
+            {
+                public required Guid NutrientId { get; set; }
+                public required String NutrientName { get; set; }
+
+                public required IList<FoodItemContribution> FoodItemContributions { get; set; }
+
+                public class FoodItemContribution
+                {
+                    public required Single? NutrientQuantity { get; set; }
+                    public required String? NutrientUnitName { get; set; }
+                    public required Guid? NutrientUnitId { get; set; }
+                    public required String FoodItemName { get; set; }
+                    public required Guid FoodItemId { get; set; }
+                }
+            }
+
+            public required IList<NutrientSummary> NutrientSummaries { get; set; }
+        }
+
+        private RecipeComputedFoodItemTableModel ComputeFoodItemFor(Recipe recipe)
         {
+            RecipeComputedFoodItemTableModel table = new() { NutrientSummaries = [] };
+
+            var allNutrients = recipe.RecipeIngredients.SelectMany(ri => ri.FoodItem.FoodItemNutrients).Select(fin => fin.Nutrient).Distinct();
+
             foreach (var recipeIngredient in recipe.RecipeIngredients) {
                 // A little dimensional analysis. We want nutrient quantity. We have quantity of ingredient.
 
@@ -150,21 +173,46 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                 var foodItemServingSize = foodItem.ServingSizes.Single(s => s.Unit.UnitType == recipeUnit.UnitType);
                 if (recipeUnit == foodItemServingSize.Unit) {
-                    unitConversion = 1; // they're the same.
+                    unitConversion = 1; // they're literally the same.
                 }
                 else {
-                    // Unfortunately, we have the backward relationship here.
                     unitConversion = (Single) foodItemServingSize.Unit.FromUnitConversions.Single(c => c.ToUnit == recipeUnit).Ratio;
                 }
 
-                // This gets us everything but the last bit.
+                // This gets us everything but the last bit in that computation.
                 var nutrientPerRecipeRatio = recipeQuantity / unitConversion / foodItemServingSize.Quantity;
 
-                foreach (var nutrient in foodItem.FoodItemNutrients) {
-                    var nutrientPerRecipe = nutrient.Quantity * nutrientPerRecipeRatio;
-                    Console.Out.WriteLine("{0} of {1} from {2}", nutrientPerRecipe, nutrient.Nutrient.Name, foodItem.Name);
+                foreach (var possibleNutrient in allNutrients) {
+                    var fin = foodItem.FoodItemNutrients.SingleOrDefault(fin => fin.Nutrient == possibleNutrient);
+
+                    // This is the last bit in that computation.
+                    Single? nutrientPerRecipe = fin == null ? null : fin.Quantity * nutrientPerRecipeRatio;
+
+                    var nutrientSummary = table.NutrientSummaries.SingleOrDefault(ns => ns.NutrientId == possibleNutrient.Id) ;
+
+                    if (null == nutrientSummary) {
+                        nutrientSummary = new() {
+                            NutrientName = possibleNutrient.Name
+                          , NutrientId = possibleNutrient.Id
+                          , FoodItemContributions = []
+                        };
+
+                        table.NutrientSummaries.Add(nutrientSummary);
+                    }
+
+                    nutrientSummary.FoodItemContributions.Add(new() {
+                        NutrientQuantity = nutrientPerRecipe
+                      , NutrientUnitId = recipeIngredient.Unit.Id
+                      , NutrientUnitName = recipeIngredient.Unit.UnitName
+                      , FoodItemName = foodItem.Name
+                      , FoodItemId = foodItem.Id
+                    });
+
+                    // Console.Out.WriteLine("{0} of {1} from {2}", nutrientPerRecipe, fin.Nutrient.Name, foodItem.Name);
                 }
             }
+
+            return table;
         }
 
         private async Task PopulateRecipe(RecipeModel model, Recipe recipe)
