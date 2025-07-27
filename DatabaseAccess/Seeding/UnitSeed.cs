@@ -17,7 +17,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureUnits("Volume", "Quarts");
             EnsureUnits("Volume", "Cups");
             EnsureUnits("Volume", "Tablespoons");
-            EnsureUnits("Volume", "Teaspooons");
+            EnsureUnits("Volume", "Teaspoons");
             EnsureUnits("Volume", "Ounces");
             
             EnsureUnits("Mass", "Grams");
@@ -34,23 +34,34 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureUnitConversion("Volume", "Liters",      "Quarts",      1.0567);
             EnsureUnitConversion("Volume", "Liters",      "Cups",        4.2268);
             EnsureUnitConversion("Volume", "Liters",      "Tablespoons", 67.628);
-            EnsureUnitConversion("Volume", "Liters",      "Teaspooons",  202.8841);
+            EnsureUnitConversion("Volume", "Liters",      "Teaspoons",  202.8841);
             EnsureUnitConversion("Volume", "Liters",      "Ounces",      33.814);
             EnsureUnitConversion("Volume", "Gallons",     "Quarts",      4);
             EnsureUnitConversion("Volume", "Gallons",     "Cups",        16);
             EnsureUnitConversion("Volume", "Gallons",     "Tablespoons", 256);
-            EnsureUnitConversion("Volume", "Gallons",     "Teaspooons",  768);
+            EnsureUnitConversion("Volume", "Gallons",     "Teaspoons",  768);
             EnsureUnitConversion("Volume", "Gallons",     "Ounces",      128);
             EnsureUnitConversion("Volume", "Quarts",      "Cups",        4);
             EnsureUnitConversion("Volume", "Quarts",      "Tablespoons", 64);
-            EnsureUnitConversion("Volume", "Quarts",      "Teaspooons",  192);
+            EnsureUnitConversion("Volume", "Quarts",      "Teaspoons",  192);
             EnsureUnitConversion("Volume", "Quarts",      "Ounces",      32);
             EnsureUnitConversion("Volume", "Cups",        "Tablespoons", 16);
-            EnsureUnitConversion("Volume", "Cups",        "Teaspooons",  48);
+            EnsureUnitConversion("Volume", "Cups",        "Teaspoons",  48);
             EnsureUnitConversion("Volume", "Cups",        "Ounces",      8);
             EnsureUnitConversion("Volume", "Ounces",      "Tablespoons", 2);
-            EnsureUnitConversion("Volume", "Ounces",      "Teaspooons",  6);
-            EnsureUnitConversion("Volume", "Tablespoons", "Teaspooons",  3);
+            EnsureUnitConversion("Volume", "Ounces",      "Teaspoons",  6);
+            EnsureUnitConversion("Volume", "Tablespoons", "Teaspoons",  3);
+
+            EnsureUnitConversion("Mass", "Grams",      "Milligrams", 1000);
+            EnsureUnitConversion("Mass", "Grams",      "Micrograms", 1000000);
+            EnsureUnitConversion("Mass", "Grams",      "Ounces",     0.03527396);
+            EnsureUnitConversion("Mass", "Grams",      "Pounds",     0.002204623);
+            EnsureUnitConversion("Mass", "Milligrams", "Micrograms", 1000);
+            EnsureUnitConversion("Mass", "Milligrams", "Ounces",     0.00003527396);
+            EnsureUnitConversion("Mass", "Milligrams", "Pounds",     0.000002204623);
+            EnsureUnitConversion("Mass", "Micrograms", "Ounces",     0.00000003527396);
+            EnsureUnitConversion("Mass", "Micrograms", "Pounds",     0.000000002204623);
+            EnsureUnitConversion("Mass", "Ounces",     "Pounds",     16);
 
             this._ctx.SaveChanges();
         }
@@ -96,7 +107,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
         private void EnsureUnits(string type, string name)
         {
             if (! this._ctx.Units.Any(u => u.UnitName == name && u.UnitType == type)) {
-                Unit entity = new() { Id = Guid.NewGuid(), UnitType = type, UnitName = name };
+                Unit entity = new() { Id = Guid.NewGuid(), UnitType = type, UnitName = name, FromUnitConversions = [], ToUnitConversions = [] };
                 this._ctx.Units.Add(entity);
             }
         }

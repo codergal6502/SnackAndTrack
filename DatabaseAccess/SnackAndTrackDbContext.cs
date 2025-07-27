@@ -5,6 +5,12 @@ namespace SnackAndTrack.DatabaseAccess {
     public class SnackAndTrackDbContext : DbContext {
         public SnackAndTrackDbContext(DbContextOptions<SnackAndTrackDbContext> options) : base(options) { }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            // optionsBuilder.UseLazyLoadingProxies();
+            base.OnConfiguring(optionsBuilder);
+        }
+
         public required DbSet<FoodItem> FoodItems { get; set; }
         public required DbSet<FoodItemNutrient> FoodItemNutrients { get; set; }
         public required DbSet<Nutrient> Nutrients { get; set; }
