@@ -81,7 +81,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 }).ToArray()
               , ServingSizes = (null == foodItem.ServingSizes) ? [] : foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
                     UnitId = s.Unit.Id
-                  , UnitType = s.Unit.UnitType
+                  , UnitType = s.Unit.Type
                   , Quantity = s.Quantity
                 }).ToArray()
             };
@@ -184,44 +184,45 @@ namespace SnackAndTrack.WebApp.Controllers {
             List<FoodItemNutrient> existingFoodItemNutrients = foodItem.FoodItemNutrients.ToList();
 
             foreach (var i in nutrientModels.Select((x, i) => new { NutrientModel = x, Index = (Int16) i }))
-            // foreach (var nutritionModel in nutrientModels)
             {
-                var nutritionModel = i.NutrientModel;
-                var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Name == nutritionModel.Name);
+                // var nutritionModel = i.NutrientModel;
+                // var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Name == nutritionModel.Name);
 
-                if (null == existingFoodItemNutrient)
-                {
-                    Nutrient nutrient = await _context.Nutrients.SingleAsync(n => n.Name == nutritionModel.Name);
+                // if (null == existingFoodItemNutrient)
+                // {
+                //     Nutrient nutrient = await _context.Nutrients.SingleAsync(n => n.Name == nutritionModel.Name);
 
-                    if (null == nutrient)
-                    {
-                        nutrient = new Nutrient
-                        {
-                            Id = Guid.NewGuid()
-                          , Name = nutritionModel.Name
-                          , FoodItemNutrients = []
-                        };
+                //     if (null == nutrient)
+                //     {
+                //         nutrient = new Nutrient
+                //         {
+                //             Id = Guid.NewGuid()
+                //           , Name = nutritionModel.Name
+                //           , FoodItemNutrients = []
+                //         };
 
-                        this._context.Add(nutrient);
-                    }
+                //         this._context.Add(nutrient);
+                //     }
 
-                    foodItem.FoodItemNutrients.Add(new FoodItemNutrient
-                    {
-                        Id = new Guid()
-                      , FoodItem = foodItem
-                      , Nutrient = nutrient
-                      , Quantity = nutritionModel.Quantity
-                      , DisplayOrder = i.Index
-                    });
-                }
-                else
-                {
-                    existingFoodItemNutrient.Quantity = nutritionModel.Quantity;
-                    existingFoodItemNutrient.DisplayOrder = i.Index;
+                //     foodItem.FoodItemNutrients.Add(new FoodItemNutrient
+                //     {
+                //         Id = new Guid()
+                //       , FoodItem = foodItem
+                //       , Nutrient = nutrient
+                //       , Quantity = nutritionModel.Quantity
+                //       , DisplayOrder = i.Index
+                //     });
+                // }
+                // else
+                // {
+                //     existingFoodItemNutrient.Quantity = nutritionModel.Quantity;
+                //     existingFoodItemNutrient.DisplayOrder = i.Index;
 
-                    // Any that are left at the end should be removed from the database.
-                    existingFoodItemNutrients.Remove(existingFoodItemNutrient);
-                }
+                //     // Any that are left at the end should be removed from the database.
+                //     existingFoodItemNutrients.Remove(existingFoodItemNutrient);
+                // }
+
+                throw new NotImplementedException();
             }
 
             // Any that are left at the end should be removed from the database.

@@ -33,7 +33,6 @@ const RecipeCompute = () => {
 
         setNutritionTable(data);
         setShowNutritionTable(true);
-        debugger;
     }
 
     return (
@@ -64,9 +63,10 @@ const RecipeCompute = () => {
                 </div>
             </div>
             <h5>Ingredients</h5>
-            <table className='table'>
+            <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
+                        <th scope='row'>Ingredient</th>
                         {(recipe.ingredients.map((ingredient, index) => (
                             <th key={index} scope="col">{ingredient.foodItemName}</th>
                         )))}
@@ -74,20 +74,21 @@ const RecipeCompute = () => {
                 </thead>
                 <tbody>
                     <tr>
+                        <th scope='row'>Quantity</th>
                         {(recipe.ingredients.map((ingredient, index) => (
                             <td key={index} scope="col">{ingredient.quantity} {ingredient.quantityUnitName}</td>
                         )))}
                     </tr>
                 </tbody>
             </table>
-            <button className='btn btn-primary' onClick={() => handleCompute(id)}>Compute Food Item Nutrition</button>
+            <button className='btn btn-primary' onClick={() => handleCompute(id)}>Generate Table</button>
             {showNutritionTable && (
                 <>
                     <h5>Nutrition</h5>
                     <table className='table table-striped table-bordered'>
                         <thead>
                             <tr>
-                                <th scope='col'>Ingredient</th>
+                                <th scope='col'>Nutrient</th>
                                 {(recipe.ingredients.map((ingredient, index) => (
                                     <th key={index} scope="col">{ingredient.foodItemName}</th>
                                 )))}

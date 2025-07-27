@@ -86,11 +86,16 @@ namespace DatabaseAccess.Migrations
                     b.Property<float>("Quantity")
                         .HasColumnType("real");
 
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FoodItemId");
 
                     b.HasIndex("NutrientId");
+
+                    b.HasIndex("UnitId");
 
                     b.ToTable("FoodItemNutrients");
                 });
@@ -101,11 +106,23 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("DefaultUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("DisplayOrder")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultUnitId");
 
                     b.ToTable("Nutrients");
                 });
@@ -193,11 +210,17 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("UnitName")
+                    b.Property<string>("AbbreviationCsv")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("CanBeServingSize")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("UnitType")
+                    b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -263,9 +286,28 @@ namespace DatabaseAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("FoodItem");
 
                     b.Navigation("Nutrient");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Nutrient", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "DefaultUnit")
+                        .WithMany()
+                        .HasForeignKey("DefaultUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DefaultUnit");
                 });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.RecipeIngredient", b =>

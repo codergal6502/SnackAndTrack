@@ -18,6 +18,9 @@ namespace SnackAndTrack.WebApp {
                     if (null != ctx) {
                         UnitSeed unitSeed = new(ctx);
                         unitSeed.DoSeed();
+
+                        NutrientSeed nutrientSeed = new(ctx);
+                        nutrientSeed.DoSeed();
                     }
                 }
             }

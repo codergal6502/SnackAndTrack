@@ -1,5 +1,3 @@
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -22,10 +20,6 @@ namespace SnackAndTrack.DatabaseAccess {
             var ctor = typeof(SnackAndTrackDbContext).GetConstructor([typeof(DbContextOptions<SnackAndTrackDbContext>)]) ?? throw new Exception("No options constructor.");
 
             return (SnackAndTrackDbContext) ctor.Invoke([optionsBuilder.Options]);
-
-            // return new SnackAndTrackDbContext(optionsBuilder.Options) { FoodItems = default, FoodItemNutrients = default, Nutrients = default, ServingSizes = default, UnitConversions = default, Units = default };
         }
     }
 }
-
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.

@@ -1,18 +1,76 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import UnitSelector from './UnitSelector'
+import Select from 'react-select';
 
 const FoodItemForm = () => {
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', servingSizes: [], nutrients: [] });
+
+    const [unitTypes, setUnitTypes] = useState([]);
+    const [unitDictionary, setUnitDictionary] = useState({});
+    const [servingSizeUnitOptions, setServingSizeUnitOptions] = useState([]); // Empty 2D-array
+    const [nutrientOptions, setNutrientOptions] = useState([]);
+    const [nutrientDictionary, setNutrientDictionary] = useState({});
+    const [nutrientUnitOptions, setNutrientUnitOptions] = useState([]); // Empty 2D-array
+
     const { id } = useParams();
     const navigate = useNavigate();
 
     useEffect(() => {
+        const initializationPromises = Promise.all([fetchNutrients(), fetchUnits()])
         if (id) {
-            fetchFoodItem(id);
+            initializationPromises.then(() => fetchFoodItem(id));
         }
     }, [id]);
+
+    const fetchNutrients = async() => {
+        let url = `/api/lookup/nutrients`
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+            }
+
+            const nutrientArray = await response.json();
+            const nutrientGroupDictionary = Object.groupBy(nutrientArray, n => n.group);
+            const groupedOptions = Object.keys(nutrientGroupDictionary).map(k => ({
+                label: k
+              , displayOrder: Math.min.apply(null, nutrientGroupDictionary[k].map(nutrient => nutrient.displayOrder))
+              , options: nutrientGroupDictionary[k].toSorted((n1, n2) => n1.displayOrder - n2.displayOrder).map(nutrient => ({
+                    value: nutrient.id
+                  , label: nutrient.name
+                }))
+            })).toSorted((n1, n2) => n1.displayOrder - n2.displayOrder);
+
+            setNutrientOptions(groupedOptions);
+            setNutrientDictionary(nutrientArray.reduce((result, nutrient) => { result[nutrient.id] = nutrient; return result; }, { }));
+        }
+        catch (error) {
+            console.error(`Request to ${url} failed.`, error)
+            setNutrientOptions([]);
+        }
+    }
+
+    const fetchUnits = async () => {
+        let url = `/api/lookup/units`
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+            }
+
+            const units = await response.json();
+            const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
+            setUnitDictionary(newUnitDct);
+
+            setUnitTypes(units.map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })));
+
+            return units;
+        }
+        catch (error) {
+            console.error(`Request to ${url} failed.`, error)
+        }
+    }
 
     const fetchFoodItem = async (id) => {
         const response = await fetch(`/api/fooditems/${id}`);
@@ -30,10 +88,30 @@ const FoodItemForm = () => {
         const servingSizes = [...foodItem.servingSizes];
         servingSizes[index] = { ...servingSizes[index], [name]: value };
         setFoodItem({ ...foodItem, servingSizes: servingSizes});
-    }
+    };
+
+    const handleServingSizeUnitTypeSelectionChange = (index, selectedOption) => {
+        const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedOption.value);
+
+        const newUnitOptions = [...servingSizeUnitOptions];
+        newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
+        setServingSizeUnitOptions(newUnitOptions);
+
+        const newServingSizes = [ ...foodItem.servingSizes];
+        newServingSizes[index].unitType = selectedOption.value;
+        const newFoodItem = { ...foodItem, servingSize: newServingSizes };
+        setFoodItem(newFoodItem);
+    };
+
+    const handleServingSizeUnitSeelctionChange = (index, selectedOption) => {
+        const newServingSizes = [ ...foodItem.servingSizes];
+        newServingSizes[index].unitId = selectedOption.value;
+        const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
+        setFoodItem(newFoodItem);
+    };
 
     const addServingSize = () => {
-        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, { unitId: "", quantity: 0 }] });
+        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, { unitId: "", quantity: 0, unitType: "" }] });
     };
 
     const removeServingSize = (index) => {
@@ -47,6 +125,11 @@ const FoodItemForm = () => {
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 1);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index], foodItem.servingSizes[index - 1], ...servingSizesAfter];
             setFoodItem({ ...foodItem, servingSizes: servingSizes});
+
+            const servingSizeUnitOptionsBefore = servingSizeUnitOptions.slice(0, index - 1);
+            const servingSizeUnitOptionsAfter = servingSizeUnitOptions.slice(index + 1);
+            const newServingSizeUnitOptions = [...servingSizeUnitOptionsBefore, servingSizeUnitOptions[index], servingSizeUnitOptions[index-1], ...servingSizeUnitOptionsAfter];
+            setServingSizeUnitOptions(newServingSizeUnitOptions);
         }
     }
 
@@ -56,6 +139,11 @@ const FoodItemForm = () => {
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 2);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index + 1], foodItem.servingSizes[index], ...servingSizesAfter];
             setFoodItem({ ...foodItem, servingSizes: servingSizes});
+
+            const servingSizeUnitOptionsBefore = servingSizeUnitOptions.slice(0, index);
+            const servingSizeUnitOptionsAfter = servingSizeUnitOptions.slice(index + 2);
+            const newServingSizeUnitOptions = [...servingSizeUnitOptionsBefore, servingSizeUnitOptions[index + 1], servingSizeUnitOptions[index], ...servingSizeUnitOptionsAfter];
+            setServingSizeUnitOptions(newServingSizeUnitOptions);
         }
     }
 
@@ -66,8 +154,31 @@ const FoodItemForm = () => {
         setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
+    const handleNutrientSelectionChange = (index, selectedOption) => {
+        const selectedNutrient = nutrientDictionary[selectedOption.value];
+        const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
+
+        const newUnitOptions = [...nutrientUnitOptions];
+        newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
+        setNutrientUnitOptions(newUnitOptions);
+
+        const newNutrients = [ ...foodItem.nutrients];
+        newNutrients[index].nutrientId = selectedOption.value;
+        newNutrients[index].quantityUnitId = selectedNutrient.defaultUnit.id;
+        const newFoodItem = { ...foodItem, nutrients: newNutrients };
+        setFoodItem(newFoodItem);
+    };
+
+    const handleNutrientUnitChange = (selectedOption, index) => {
+        const newNutrients = [ ...foodItem.nutrients];
+        newNutrients[index].quantityUnitId = selectedOption.value;
+        const newFoodItem = { ...foodItem, nutrients: newNutrients };
+        setFoodItem(newFoodItem);
+    };
+
     const addNutrient = () => {
-        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { name: '', quantity: 0 }] });
+        setNutrientUnitOptions([ ...nutrientUnitOptions, [ ] ]);
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { name: '', quantity: 0, nutrientId: '', quantityUnitId: '' }] });
     };
 
     const removeNutrient = (index) => {
@@ -79,8 +190,13 @@ const FoodItemForm = () => {
         if (index > 0) {
             const nutrientsBefore = foodItem.nutrients.slice(0, index - 1);
             const nutrientsAfter  = foodItem.nutrients.slice(index + 1);
-            const nutrients = [...nutrientsBefore, foodItem.nutrients[index], foodItem.nutrients[index - 1], ...nutrientsAfter];
-            setFoodItem({ ...foodItem, nutrients: nutrients});
+            const newNutrients = [...nutrientsBefore, foodItem.nutrients[index], foodItem.nutrients[index - 1], ...nutrientsAfter];
+            setFoodItem({ ...foodItem, nutrients: newNutrients});
+
+            const nutrientUnitOptionsBefore = nutrientUnitOptions.slice(0, index - 1);
+            const nutrientUnitOptionsAfter = nutrientUnitOptions.slice(index + 1);
+            const newNutrientUnitOptions = [...nutrientUnitOptionsBefore, nutrientUnitOptions[index], nutrientUnitOptions[index-1], ...nutrientUnitOptionsAfter];
+            setNutrientUnitOptions(newNutrientUnitOptions);
         }
     }
 
@@ -90,6 +206,11 @@ const FoodItemForm = () => {
             const nutrientsAfter  = foodItem.nutrients.slice(index + 2);
             const nutrients = [...nutrientsBefore, foodItem.nutrients[index + 1], foodItem.nutrients[index], ...nutrientsAfter];
             setFoodItem({ ...foodItem, nutrients: nutrients});
+
+            const nutrientUnitOptionsBefore = nutrientUnitOptions.slice(0, index);
+            const nutrientUnitOptionsAfter = nutrientUnitOptions.slice(index + 2);
+            const newNutrientUnitOptions = [...nutrientUnitOptionsBefore, nutrientUnitOptions[index + 1], nutrientUnitOptions[index], ...nutrientUnitOptionsAfter];
+            setNutrientUnitOptions(newNutrientUnitOptions);
         }
     }
 
@@ -116,7 +237,7 @@ const FoodItemForm = () => {
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form autoComplete="off" onSubmit={handleSubmit}>
             <h4>Food Item</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -147,11 +268,34 @@ const FoodItemForm = () => {
             
             {foodItem.servingSizes.map((servingSize, index) => (
                 <div key={index} className="row mb-3">
-                    <UnitSelector name="unitId" idPrefix="foodItem-" idSuffix={`-${index}`} onUnitChange={(e) => handleServingSizeChange(index, e)} unitType={servingSize.unitType} unitId={servingSize.unitId} />
+                    <div className='col'>
+                        <label htmlFor={`servingSize-unit-type-${index}`}>Unit Type:</label>
+                        <Select
+                            id={`servingSize-unit-type-${index}`}
+                            options={unitTypes}
+                            isClearable={false}
+                            isSearchable={false}
+                            isDisabled={false}
+                            onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
+                            value={unitTypes.find(option => option.value == servingSize.unitType) || null}
+                        />
+                    </div>
+                    <div className='col'>
+                        <label htmlFor={`servingSize-unit-${index}`}>Unit:</label>
+                        <Select
+                            id={`servingSize-unit-${index}`}
+                            options={servingSizeUnitOptions[index]}
+                            isClearable={false}
+                            isSearchable={false}
+                            isDisabled={false}
+                            onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
+                            value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
+                        />
+                    </div>                    
                     <div className="col">
-                        <label htmlFor={`foodItem-quantity-${index}`}>Quantity:</label>
+                        <label htmlFor={`servingSize-quantity-${index}`}>Quantity:</label>
                         <input
-                            id={`foodItem-quantity-${index}`}
+                            id={`servingSize-quantity-${index}`}
                             type="number"
                             name="quantity"
                             className="form-control"
@@ -176,15 +320,12 @@ const FoodItemForm = () => {
                 <div key={index} className="row mb-3">
                     <div className="col">
                         <label htmlFor={`foodItem-nutrient-${index}`}>Nutrient</label>
-                        <input
+                        <Select
                             id={`foodItem-nutrient-${index}`}
-                            type="text"
-                            name="name"
-                            className="form-control"
-                            value={nutrient.name}
-                            onChange={(e) => handleNutrientChange(index, e)}
-                            placeholder="Nutrient"
-                            required
+                            options={nutrientOptions}
+                            onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
+                            isClearable
+                            value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
                         />
                     </div>
                     <div className="col">
@@ -198,6 +339,16 @@ const FoodItemForm = () => {
                             onChange={(e) => handleNutrientChange(index, e)}
                             placeholder="Quantity"
                             required
+                        />
+                    </div>
+                    <div className="col">
+                        <label htmlFor={`foodItem-nutrient-${index}`}>Quantity Unit</label>
+                        <Select
+                            id={`foodItem-nutrient-${index}`}
+                            options={nutrientUnitOptions[index]}
+                            onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
+                            isClearable
+                            value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.quantityUnitId) || null}
                         />
                     </div>
                     <div className="col-auto align-self-end">

@@ -5,9 +5,10 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
     public class Unit {
         [Key]
         public virtual required Guid Id { get; set; }
-        public virtual required String UnitName  { get; set; }
-        public virtual required String UnitType  { get; set; }
-    
+        public virtual required String Name  { get; set; }
+        public virtual required String Type  { get; set; }
+        public virtual required String? AbbreviationCsv { get; set; }
+        public virtual required Boolean CanBeServingSize { get; set; }
         [InverseProperty(nameof(UnitConversion.FromUnit))]
         public virtual required ICollection<UnitConversion> FromUnitConversions { get; set; }
 

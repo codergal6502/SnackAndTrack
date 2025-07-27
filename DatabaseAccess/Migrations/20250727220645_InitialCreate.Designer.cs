@@ -7,19 +7,50 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SnackAndTrack.DatabaseAccess;
 
+#nullable disable
+
 namespace DatabaseAccess.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250726203951_Recipes")]
-    partial class Recipes
+    [Migration("20250727220645_InitialCreate")]
+    partial class InitialCreate
     {
+        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("Relational:MaxIdentifierLength", 63)
-                .HasAnnotation("ProductVersion", "5.0.5")
-                .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.AmountMade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("DisplayOrder")
+                        .HasColumnType("smallint");
+
+                    b.Property<float>("Quantity")
+                        .HasColumnType("real");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("AmountMade");
+                });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItem", b =>
                 {
@@ -58,11 +89,16 @@ namespace DatabaseAccess.Migrations
                     b.Property<float>("Quantity")
                         .HasColumnType("real");
 
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FoodItemId");
 
                     b.HasIndex("NutrientId");
+
+                    b.HasIndex("UnitId");
 
                     b.ToTable("FoodItemNutrients");
                 });
@@ -73,11 +109,23 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("DefaultUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("DisplayOrder")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultUnitId");
 
                     b.ToTable("Nutrients");
                 });
@@ -109,7 +157,7 @@ namespace DatabaseAccess.Migrations
                     b.Property<short>("DisplayOrder")
                         .HasColumnType("smallint");
 
-                    b.Property<Guid?>("FoodItemId")
+                    b.Property<Guid>("FoodItemId")
                         .HasColumnType("uuid");
 
                     b.Property<float>("Quantity")
@@ -118,7 +166,7 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("UnitId")
+                    b.Property<Guid>("UnitId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -147,7 +195,7 @@ namespace DatabaseAccess.Migrations
                     b.Property<float>("Quantity")
                         .HasColumnType("real");
 
-                    b.Property<Guid?>("UnitId")
+                    b.Property<Guid>("UnitId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -165,11 +213,17 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("UnitName")
+                    b.Property<string>("AbbreviationCsv")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("CanBeServingSize")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("UnitType")
+                    b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -184,13 +238,13 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("FromUnitId")
+                    b.Property<Guid>("FromUnitId")
                         .HasColumnType("uuid");
 
                     b.Property<double>("Ratio")
                         .HasColumnType("double precision");
 
-                    b.Property<Guid?>("ToUnitId")
+                    b.Property<Guid>("ToUnitId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -200,6 +254,25 @@ namespace DatabaseAccess.Migrations
                     b.HasIndex("ToUnitId");
 
                     b.ToTable("UnitConversions");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.AmountMade", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Recipe", "Recipe")
+                        .WithMany("AmountsMade")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItemNutrient", b =>
@@ -216,16 +289,37 @@ namespace DatabaseAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("FoodItem");
 
                     b.Navigation("Nutrient");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Nutrient", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "DefaultUnit")
+                        .WithMany()
+                        .HasForeignKey("DefaultUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DefaultUnit");
                 });
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.RecipeIngredient", b =>
                 {
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.FoodItem", "FoodItem")
                         .WithMany()
-                        .HasForeignKey("FoodItemId");
+                        .HasForeignKey("FoodItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Recipe", "Recipe")
                         .WithMany("RecipeIngredients")
@@ -235,7 +329,9 @@ namespace DatabaseAccess.Migrations
 
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
                         .WithMany()
-                        .HasForeignKey("UnitId");
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("FoodItem");
 
@@ -254,7 +350,9 @@ namespace DatabaseAccess.Migrations
 
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "Unit")
                         .WithMany()
-                        .HasForeignKey("UnitId");
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("FoodItem");
 
@@ -264,12 +362,16 @@ namespace DatabaseAccess.Migrations
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.UnitConversion", b =>
                 {
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "FromUnit")
-                        .WithMany()
-                        .HasForeignKey("FromUnitId");
+                        .WithMany("FromUnitConversions")
+                        .HasForeignKey("FromUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Unit", "ToUnit")
-                        .WithMany()
-                        .HasForeignKey("ToUnitId");
+                        .WithMany("ToUnitConversions")
+                        .HasForeignKey("ToUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("FromUnit");
 
@@ -290,7 +392,16 @@ namespace DatabaseAccess.Migrations
 
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Recipe", b =>
                 {
+                    b.Navigation("AmountsMade");
+
                     b.Navigation("RecipeIngredients");
+                });
+
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Unit", b =>
+                {
+                    b.Navigation("FromUnitConversions");
+
+                    b.Navigation("ToUnitConversions");
                 });
 #pragma warning restore 612, 618
         }

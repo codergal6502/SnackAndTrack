@@ -100,9 +100,9 @@ namespace SnackAndTrack.WebApp.Controllers {
         [HttpGet("computeFoodItem/{id}")]
         public async Task<ActionResult<RecipeComputedFoodItemTableModel>> ComputeFoodItem(Guid id) {
             
-            var unit = _context.Units.Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit).Include(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit).Single(u => u.UnitName == "Teaspoons");
+            var unit = _context.Units.Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit).Include(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit).Single(u => u.Name == "Teaspoons");
             var conversions = unit.FromUnitConversions.ToList();
-            var isOneThird = conversions.Single(c => c.ToUnit.UnitName == "Tablespoons");
+            var isOneThird = conversions.Single(c => c.ToUnit.Name == "Tablespoons");
 
 
             var recipe = await this
@@ -169,9 +169,9 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                 var foodItem = recipeIngredient.FoodItem;
                 var recipeUnit = recipeIngredient.Unit;
-                var recipeUnitType = recipeUnit.UnitType;
+                var recipeUnitType = recipeUnit.Type;
 
-                var foodItemServingSize = foodItem.ServingSizes.Single(s => s.Unit.UnitType == recipeUnit.UnitType);
+                var foodItemServingSize = foodItem.ServingSizes.Single(s => s.Unit.Type == recipeUnit.Type);
                 if (recipeUnit == foodItemServingSize.Unit) {
                     unitConversion = 1; // they're literally the same.
                 }
@@ -203,7 +203,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                     nutrientSummary.FoodItemContributions.Add(new() {
                         NutrientQuantity = nutrientPerRecipe
                       , NutrientUnitId = recipeIngredient.Unit.Id
-                      , NutrientUnitName = recipeIngredient.Unit.UnitName
+                      , NutrientUnitName = recipeIngredient.Unit.Name
                       , FoodItemName = foodItem.Name
                       , FoodItemId = foodItem.Id
                     });
@@ -237,18 +237,18 @@ namespace SnackAndTrack.WebApp.Controllers {
                         FoodItemId = ri.FoodItem.Id
                       , FoodItemName = ri.FoodItem.Name
                       , QuantityUnitId = ri.Unit.Id
-                      , QuantityUnitType = ri.Unit.UnitType
-                      , QuantityUnitName = ri.Unit.UnitName
+                      , QuantityUnitType = ri.Unit.Type
+                      , QuantityUnitName = ri.Unit.Name
                       , Quantity = ri.Quantity
-                      , QuantityUnitTypeOptions = ri.FoodItem.ServingSizes.Select(s => s.Unit.UnitType).Distinct().ToArray()
+                      , QuantityUnitTypeOptions = ri.FoodItem.ServingSizes.Select(s => s.Unit.Type).Distinct().ToArray()
                     }
                 ).ToArray()
               , AmountsMade = (null == recipe.AmountsMade) ? [] : recipe.AmountsMade.OrderBy(am => am.DisplayOrder).Select(am =>
                     new RecipeModel.AmountMade {
                         Quantity = am.Quantity
                       , QuantityUnitId = am.Unit.Id
-                      , QuantityUnitName = am.Unit.UnitName
-                      , QuantityUnitType = am.Unit.UnitType
+                      , QuantityUnitName = am.Unit.Name
+                      , QuantityUnitType = am.Unit.Type
                     }
                 ).ToArray()
             };
