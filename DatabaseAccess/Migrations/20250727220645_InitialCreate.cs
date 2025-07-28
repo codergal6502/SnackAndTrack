@@ -45,7 +45,7 @@ namespace DatabaseAccess.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false),
                     AbbreviationCsv = table.Column<string>(type: "text", nullable: true),
-                    CanBeServingSize = table.Column<bool>(type: "boolean", nullable: false)
+                    CanBeFoodQuantity = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -167,7 +167,7 @@ namespace DatabaseAccess.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     FromUnitId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Ratio = table.Column<double>(type: "double precision", nullable: false),
+                    Ratio = table.Column<float>(type: "real", nullable: false),
                     ToUnitId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>

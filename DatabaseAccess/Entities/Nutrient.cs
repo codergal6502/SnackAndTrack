@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 
 namespace SnackAndTrack.DatabaseAccess.Entities {
+    [DebuggerDisplay("{Name} ({Group})")]
     public class Nutrient {
         [Key]
         public virtual required Guid Id { get; set; }

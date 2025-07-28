@@ -35,45 +35,45 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
 
             this._ctx.SaveChanges();
 
-            EnsureUnitConversion("Energy", "Calories", "Kilojoules", 4.184);
+            EnsureUnitConversion("Energy", "Calories", "Kilojoules", (Single) 4.184);
 
-            EnsureUnitConversion("Volume", "Liters",      "Gallons",     0.2642);
-            EnsureUnitConversion("Volume", "Liters",      "Quarts",      1.0567);
-            EnsureUnitConversion("Volume", "Liters",      "Cups",        4.2268);
-            EnsureUnitConversion("Volume", "Liters",      "Tablespoons", 67.628);
-            EnsureUnitConversion("Volume", "Liters",      "Teaspoons",   202.8841);
-            EnsureUnitConversion("Volume", "Liters",      "Ounces",      33.814);
-            EnsureUnitConversion("Volume", "Gallons",     "Quarts",      4);
-            EnsureUnitConversion("Volume", "Gallons",     "Cups",        16);
-            EnsureUnitConversion("Volume", "Gallons",     "Tablespoons", 256);
-            EnsureUnitConversion("Volume", "Gallons",     "Teaspoons",   768);
-            EnsureUnitConversion("Volume", "Gallons",     "Ounces",      128);
-            EnsureUnitConversion("Volume", "Quarts",      "Cups",        4);
-            EnsureUnitConversion("Volume", "Quarts",      "Tablespoons", 64);
-            EnsureUnitConversion("Volume", "Quarts",      "Teaspoons",   192);
-            EnsureUnitConversion("Volume", "Quarts",      "Ounces",      32);
-            EnsureUnitConversion("Volume", "Cups",        "Tablespoons", 16);
-            EnsureUnitConversion("Volume", "Cups",        "Teaspoons",   48);
-            EnsureUnitConversion("Volume", "Cups",        "Ounces",      8);
-            EnsureUnitConversion("Volume", "Ounces",      "Tablespoons", 2);
-            EnsureUnitConversion("Volume", "Ounces",      "Teaspoons",   6);
-            EnsureUnitConversion("Volume", "Tablespoons", "Teaspoons",   3);
+            EnsureUnitConversion("Volume", "Liters",      "Gallons",     (Single) 0.2642);
+            EnsureUnitConversion("Volume", "Liters",      "Quarts",      (Single) 1.0567);
+            EnsureUnitConversion("Volume", "Liters",      "Cups",        (Single) 4.2268);
+            EnsureUnitConversion("Volume", "Liters",      "Tablespoons", (Single) 67.628);
+            EnsureUnitConversion("Volume", "Liters",      "Teaspoons",   (Single) 202.8841);
+            EnsureUnitConversion("Volume", "Liters",      "Ounces",      (Single) 33.814);
+            EnsureUnitConversion("Volume", "Gallons",     "Quarts",      (Single) 4);
+            EnsureUnitConversion("Volume", "Gallons",     "Cups",        (Single) 16);
+            EnsureUnitConversion("Volume", "Gallons",     "Tablespoons", (Single) 256);
+            EnsureUnitConversion("Volume", "Gallons",     "Teaspoons",   (Single) 768);
+            EnsureUnitConversion("Volume", "Gallons",     "Ounces",      (Single) 128);
+            EnsureUnitConversion("Volume", "Quarts",      "Cups",        (Single) 4);
+            EnsureUnitConversion("Volume", "Quarts",      "Tablespoons", (Single) 64);
+            EnsureUnitConversion("Volume", "Quarts",      "Teaspoons",   (Single) 192);
+            EnsureUnitConversion("Volume", "Quarts",      "Ounces",      (Single) 32);
+            EnsureUnitConversion("Volume", "Cups",        "Tablespoons", (Single) 16);
+            EnsureUnitConversion("Volume", "Cups",        "Teaspoons",   (Single) 48);
+            EnsureUnitConversion("Volume", "Cups",        "Ounces",      (Single) 8);
+            EnsureUnitConversion("Volume", "Ounces",      "Tablespoons", (Single) 2);
+            EnsureUnitConversion("Volume", "Ounces",      "Teaspoons",   (Single) 6);
+            EnsureUnitConversion("Volume", "Tablespoons", "Teaspoons",   (Single) 3);
 
-            EnsureUnitConversion("Mass", "Grams",      "Milligrams", 1000);
-            EnsureUnitConversion("Mass", "Grams",      "Micrograms", 1000000);
-            EnsureUnitConversion("Mass", "Grams",      "Ounces",     0.03527396);
-            EnsureUnitConversion("Mass", "Grams",      "Pounds",     0.002204623);
-            EnsureUnitConversion("Mass", "Milligrams", "Micrograms", 1000);
-            EnsureUnitConversion("Mass", "Milligrams", "Ounces",     0.00003527396);
-            EnsureUnitConversion("Mass", "Milligrams", "Pounds",     0.000002204623);
-            EnsureUnitConversion("Mass", "Micrograms", "Ounces",     0.00000003527396);
-            EnsureUnitConversion("Mass", "Micrograms", "Pounds",     0.000000002204623);
-            EnsureUnitConversion("Mass", "Ounces",     "Pounds",     16);
+            EnsureUnitConversion("Mass", "Grams",      "Milligrams", (Single) 1000);
+            EnsureUnitConversion("Mass", "Grams",      "Micrograms", (Single) 1000000);
+            EnsureUnitConversion("Mass", "Grams",      "Ounces",     (Single) 0.03527396);
+            EnsureUnitConversion("Mass", "Grams",      "Pounds",     (Single) 0.002204623);
+            EnsureUnitConversion("Mass", "Milligrams", "Micrograms", (Single) 1000);
+            EnsureUnitConversion("Mass", "Milligrams", "Ounces",     (Single) 0.00003527396);
+            EnsureUnitConversion("Mass", "Milligrams", "Pounds",     (Single) 0.000002204623);
+            EnsureUnitConversion("Mass", "Micrograms", "Ounces",     (Single) 0.00000003527396);
+            EnsureUnitConversion("Mass", "Micrograms", "Pounds",     (Single) 0.000000002204623);
+            EnsureUnitConversion("Mass", "Ounces",     "Pounds",     (Single) 16);
 
             this._ctx.SaveChanges();
         }
 
-        private void EnsureUnitConversion(string type, string fromName, string toName, double ratio)
+        private void EnsureUnitConversion(string type, string fromName, string toName, Single ratio)
         {
             Unit fromUnit = this._ctx.Units.Single(u => u.Type == type && u.Name == fromName);
             Unit toUnit = this._ctx.Units.Single(u => u.Type == type && u.Name == toName);
@@ -111,10 +111,10 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             }
         }
 
-        private void EnsureUnit(string type, string name, string abbreviationCsv, bool canBeServingSize)
+        private void EnsureUnit(string type, string name, string abbreviationCsv, bool canBeFoodQuantity)
         {
             if (! this._ctx.Units.Any(u => u.Name == name && u.Type == type)) {
-                Unit entity = new() { Id = Guid.NewGuid(), Type = type, Name = name, AbbreviationCsv = abbreviationCsv, CanBeServingSize = canBeServingSize, FromUnitConversions = [], ToUnitConversions = [] };
+                Unit entity = new() { Id = Guid.NewGuid(), Type = type, Name = name, AbbreviationCsv = abbreviationCsv, CanBeFoodQuantity = canBeFoodQuantity, FromUnitConversions = [], ToUnitConversions = [] };
                 this._ctx.Units.Add(entity);
             }
         }

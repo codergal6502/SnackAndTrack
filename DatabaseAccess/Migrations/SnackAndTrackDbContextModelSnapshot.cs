@@ -213,7 +213,7 @@ namespace DatabaseAccess.Migrations
                     b.Property<string>("AbbreviationCsv")
                         .HasColumnType("text");
 
-                    b.Property<bool>("CanBeServingSize")
+                    b.Property<bool>("CanBeFoodQuantity")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
@@ -238,8 +238,8 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("FromUnitId")
                         .HasColumnType("uuid");
 
-                    b.Property<double>("Ratio")
-                        .HasColumnType("double precision");
+                    b.Property<float>("Ratio")
+                        .HasColumnType("real");
 
                     b.Property<Guid>("ToUnitId")
                         .HasColumnType("uuid");
