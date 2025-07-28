@@ -12,7 +12,7 @@ using SnackAndTrack.DatabaseAccess;
 namespace DatabaseAccess.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250727220645_InitialCreate")]
+    [Migration("20250728035315_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -62,11 +62,17 @@ namespace DatabaseAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("GeneratedFoodItem")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GeneratedFoodItem")
+                        .IsUnique();
 
                     b.ToTable("FoodItems");
                 });
@@ -108,6 +114,9 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<float?>("CurrentDailyValue")
+                        .HasColumnType("real");
 
                     b.Property<Guid>("DefaultUnitId")
                         .HasColumnType("uuid");
@@ -275,6 +284,15 @@ namespace DatabaseAccess.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItem", b =>
+                {
+                    b.HasOne("SnackAndTrack.DatabaseAccess.Entities.Recipe", "GeneratedFrom")
+                        .WithOne("GeneratedFoodItem")
+                        .HasForeignKey("SnackAndTrack.DatabaseAccess.Entities.FoodItem", "GeneratedFoodItem");
+
+                    b.Navigation("GeneratedFrom");
+                });
+
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.FoodItemNutrient", b =>
                 {
                     b.HasOne("SnackAndTrack.DatabaseAccess.Entities.FoodItem", "FoodItem")
@@ -393,6 +411,8 @@ namespace DatabaseAccess.Migrations
             modelBuilder.Entity("SnackAndTrack.DatabaseAccess.Entities.Recipe", b =>
                 {
                     b.Navigation("AmountsMade");
+
+                    b.Navigation("GeneratedFoodItem");
 
                     b.Navigation("RecipeIngredients");
                 });

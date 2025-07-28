@@ -1,8 +1,10 @@
 
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
 namespace SnackAndTrack.DatabaseAccess.Entities {
+    [DebuggerDisplay("{Recipe}: {Quantity} {Unit}")]
     public class AmountMade { 
         [Key]
         public virtual required Guid Id { get; set; }

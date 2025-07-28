@@ -1,7 +1,9 @@
 
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 
 namespace SnackAndTrack.DatabaseAccess.Entities {
+    [DebuggerDisplay("{FoodItem} in {Recipe}")]
     public class RecipeIngredient
     {
         [Key]

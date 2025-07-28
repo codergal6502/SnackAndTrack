@@ -12,19 +12,6 @@ namespace DatabaseAccess.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "FoodItems",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Brand = table.Column<string>(type: "text", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_FoodItems", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Recipes",
                 columns: table => new
                 {
@@ -50,6 +37,25 @@ namespace DatabaseAccess.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Units", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FoodItems",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Brand = table.Column<string>(type: "text", nullable: false),
+                    GeneratedFoodItem = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FoodItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FoodItems_Recipes_GeneratedFoodItem",
+                        column: x => x.GeneratedFoodItem,
+                        principalTable: "Recipes",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -86,6 +92,7 @@ namespace DatabaseAccess.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     DefaultUnitId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CurrentDailyValue = table.Column<float>(type: "real", nullable: true),
                     Group = table.Column<string>(type: "text", nullable: false),
                     DisplayOrder = table.Column<short>(type: "smallint", nullable: false)
                 },
@@ -95,6 +102,32 @@ namespace DatabaseAccess.Migrations
                     table.ForeignKey(
                         name: "FK_Nutrients_Units_DefaultUnitId",
                         column: x => x.DefaultUnitId,
+                        principalTable: "Units",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UnitConversions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    FromUnitId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Ratio = table.Column<float>(type: "real", nullable: false),
+                    ToUnitId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UnitConversions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UnitConversions_Units_FromUnitId",
+                        column: x => x.FromUnitId,
+                        principalTable: "Units",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UnitConversions_Units_ToUnitId",
+                        column: x => x.ToUnitId,
                         principalTable: "Units",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -162,32 +195,6 @@ namespace DatabaseAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UnitConversions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    FromUnitId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Ratio = table.Column<float>(type: "real", nullable: false),
-                    ToUnitId = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UnitConversions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_UnitConversions_Units_FromUnitId",
-                        column: x => x.FromUnitId,
-                        principalTable: "Units",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_UnitConversions_Units_ToUnitId",
-                        column: x => x.ToUnitId,
-                        principalTable: "Units",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "FoodItemNutrients",
                 columns: table => new
                 {
@@ -245,6 +252,12 @@ namespace DatabaseAccess.Migrations
                 name: "IX_FoodItemNutrients_UnitId",
                 table: "FoodItemNutrients",
                 column: "UnitId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FoodItems_GeneratedFoodItem",
+                table: "FoodItems",
+                column: "GeneratedFoodItem",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Nutrients_DefaultUnitId",
@@ -309,13 +322,13 @@ namespace DatabaseAccess.Migrations
                 name: "Nutrients");
 
             migrationBuilder.DropTable(
-                name: "Recipes");
-
-            migrationBuilder.DropTable(
                 name: "FoodItems");
 
             migrationBuilder.DropTable(
                 name: "Units");
+
+            migrationBuilder.DropTable(
+                name: "Recipes");
         }
     }
 }

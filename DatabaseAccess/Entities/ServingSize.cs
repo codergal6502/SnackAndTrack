@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 
 namespace SnackAndTrack.DatabaseAccess.Entities {
+    [DebuggerDisplay("{Quantity} {Unit} of {FoodItem}")]
     public class ServingSize
     {
         [Key]

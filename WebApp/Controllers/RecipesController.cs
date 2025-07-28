@@ -97,55 +97,81 @@ namespace SnackAndTrack.WebApp.Controllers {
         }
 
         [HttpGet("computeFoodItem/{id}")]
-        public async Task<ActionResult<RecipeComputedFoodItemTableModel>> ComputeFoodItem(Guid id) {
-            
+        public async Task<ActionResult<RecipeComputedFoodItemTableModel>> ComputeFoodItem(Guid id)
+        {
             var unit = _context.Units.Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit).Include(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit).Single(u => u.Name == "Teaspoons");
             var conversions = unit.FromUnitConversions.ToList();
             var isOneThird = conversions.Single(c => c.ToUnit.Name == "Tablespoons");
+            Recipe recipe = await GetRecipeForFoodItemProcessing(id);
 
-            var recipe = await this
+            var table = GenerateComputedFoodItemTable(recipe);
+
+            return await table;
+        }
+
+        [HttpPost("createFoodItemForRecipe")]
+        public async Task<ActionResult> CreateFoodItemForRecipe(RecipeFoodItemSetupModel model) {
+            var recipe = await GetRecipeForFoodItemProcessing(model.RecipeId);
+
+            var units = _context.Units.ToList();
+
+            var firstAmountMade = recipe.AmountsMade.First();
+            var matchingServingSizeConversion = model.ServingSizeConversions.Single(ssc => firstAmountMade.Unit.Id == ssc.UnitId);
+            var servingRecipeRatio = matchingServingSizeConversion.Quantity / firstAmountMade.Quantity;
+            var table = await GenerateComputedFoodItemTable(recipe);
+
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+            FoodItem foodItem = new FoodItem {
+                Id = Guid.NewGuid()
+              , Name = recipe.Name
+              , Brand = String.Empty
+              , GeneratedFrom = recipe
+              , ServingSizes = null // temporary
+              , FoodItemNutrients = null // temporary
+            };
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
+
+            foodItem.ServingSizes = model.ServingSizeConversions.Select((ssc, i) => new ServingSize {
+                Id = Guid.NewGuid()
+              , DisplayOrder = (Int16) i
+              , Quantity = ssc.Quantity
+              , FoodItem = foodItem
+              , Unit = units.Single(u => u.Id == ssc.UnitId)
+            }).ToArray();
+
+            foodItem.FoodItemNutrients = table.NutrientSummaries.Select((ns, i) => new FoodItemNutrient {
+                Id = Guid.NewGuid()
+              , DisplayOrder = (Int16) i
+              , Unit = units.Single(u => u.Id == ns.NutrientUnitId)
+              , FoodItem = foodItem
+              , Nutrient = _context.Nutrients.Single(n => n.Id == ns.NutrientId)
+              , Quantity = ns.TotalQuantity
+            }).ToArray();
+
+            _context.Add(foodItem);
+            _context.AddRange(foodItem.ServingSizes);
+            _context.AddRange(foodItem.FoodItemNutrients);
+
+            await _context.SaveChangesAsync();
+
+            return new OkObjectResult(new { FoodItemId = foodItem.Id });
+        }
+
+        private async Task<Recipe> GetRecipeForFoodItemProcessing(Guid id)
+        {
+            return await this
                 ._context
                 .Recipes
+                    .Include(r => r.AmountsMade).ThenInclude(am => am.Unit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.ServingSizes).ThenInclude(s => s.Unit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient).ThenInclude(n => n.DefaultUnit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Unit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit)
                 .SingleAsync(r => r.Id == id);
-
-            var table = ComputeFoodItemFor(recipe);
-            
-            return await table;
         }
 
-        public class RecipeComputedFoodItemTableModel {
-            public class NutrientSummary
-            {
-                public required Guid NutrientId { get; set; }
-                public required String NutrientName { get; set; }
-                public required Single TotalQuantity { get; set; }
-                public required String NutrientUnitName { get; set; }
-                public required String NutrientUnitType { get; set; }
-                public required Guid NutrientUnitId { get; set; }
-                public required Int16 NutrientUnitDisplayOrder { get; set; }
-
-                public required IList<FoodItemContribution> FoodItemContributions { get; set; }
-
-                public class FoodItemContribution
-                {
-                    public required Single? NutrientQuantity { get; set; }
-                    public required String? NutrientUnitName { get; set; }
-                    public required Guid? NutrientUnitId { get; set; }
-                    public required String FoodItemName { get; set; }
-                    public required Guid FoodItemId { get; set; }
-                }
-            }
-
-            public required IList<NutrientSummary> NutrientSummaries { get; set; }
-        }
-
-        private async Task<RecipeComputedFoodItemTableModel> ComputeFoodItemFor(Recipe recipe)
-        {
+        private async Task<RecipeComputedFoodItemTableModel> GenerateComputedFoodItemTable(Recipe recipe) {
             RecipeComputedFoodItemTableModel table = new() { NutrientSummaries = [] };
 
             var allNutrients = recipe.RecipeIngredients.SelectMany(ri => ri.FoodItem.FoodItemNutrients).Select(fin => fin.Nutrient).Distinct();
@@ -236,8 +262,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             return table;
         }
 
-        private async Task PopulateRecipe(RecipeModel model, Recipe recipe)
-        {
+        private async Task PopulateRecipe(RecipeModel model, Recipe recipe) {
             recipe.Name = model.Name;
             recipe.Source = model.Source;
 
@@ -247,8 +272,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             await this._context.SaveChangesAsync();
         }
 
-        private static RecipeModel ConvertEntityToModel(Recipe recipe)
-        {
+        private static RecipeModel ConvertEntityToModel(Recipe recipe) {
             return new RecipeModel {
                 Id = recipe.Id
               , Name = recipe.Name
