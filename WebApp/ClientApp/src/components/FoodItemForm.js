@@ -6,7 +6,7 @@ import Select from 'react-select';
 const FoodItemForm = () => {
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', servingSizes: [], nutrients: [] });
 
-    const [unitTypes, setUnitTypes] = useState([]);
+    const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState({});
     const [servingSizeUnitOptions, setServingSizeUnitOptions] = useState([]); // Empty 2D-array
     const [nutrientOptions, setNutrientOptions] = useState([]);
@@ -17,11 +17,15 @@ const FoodItemForm = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const initializationPromises = Promise.all([fetchNutrients(), fetchUnits()])
-        if (id) {
-            initializationPromises.then(() => fetchFoodItem(id));
+        fetchNutrients();
+        fetchUnits();
+    }, []);
+
+    useEffect(() => {
+        if (Object.keys(unitDictionary).length > 0 && id) {
+            fetchFoodItem(id);
         }
-    }, [id]);
+    }, [unitDictionary, id]);
 
     const fetchNutrients = async() => {
         let url = `/api/lookup/nutrients`
@@ -63,7 +67,7 @@ const FoodItemForm = () => {
             const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
             setUnitDictionary(newUnitDct);
 
-            setUnitTypes(units.map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })));
+            setFoodQuantityUnitTypes(units.filter(unit => true === unit.canBeFoodQuantity).map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })))
 
             return units;
         }
@@ -76,6 +80,16 @@ const FoodItemForm = () => {
         const response = await fetch(`/api/fooditems/${id}`);
         const data = await response.json();
         setFoodItem(data);
+
+        data.nutrients.forEach(element => {
+            
+        });
+
+        const initialServingSizeUnitOptions = data.servingSizes.map((s) => Object.values(unitDictionary).filter(u => u.type == s.unitType).map(u => ({ label: u.name, value: u.id })));
+        setServingSizeUnitOptions(initialServingSizeUnitOptions);
+
+        const initialNutrientUnitOptions = data.nutrients.map((n) => Object.values(unitDictionary).filter(u => u.type == unitDictionary[n.unitId].type).map(u => ({ label: u.name, value: u.id })));
+        setNutrientUnitOptions(initialNutrientUnitOptions);
     };
 
     const handleChange = (e) => {
@@ -98,14 +112,14 @@ const FoodItemForm = () => {
         setServingSizeUnitOptions(newUnitOptions);
 
         const newServingSizes = [ ...foodItem.servingSizes];
-        newServingSizes[index].unitType = selectedOption.value;
-        const newFoodItem = { ...foodItem, servingSize: newServingSizes };
+        newServingSizes[index].unitType = selectedOption?.value;
+        const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
         setFoodItem(newFoodItem);
     };
 
     const handleServingSizeUnitSeelctionChange = (index, selectedOption) => {
         const newServingSizes = [ ...foodItem.servingSizes];
-        newServingSizes[index].unitId = selectedOption.value;
+        newServingSizes[index].unitId = selectedOption?.value;
         const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
         setFoodItem(newFoodItem);
     };
@@ -163,22 +177,22 @@ const FoodItemForm = () => {
         setNutrientUnitOptions(newUnitOptions);
 
         const newNutrients = [ ...foodItem.nutrients];
-        newNutrients[index].nutrientId = selectedOption.value;
-        newNutrients[index].quantityUnitId = selectedNutrient.defaultUnit.id;
+        newNutrients[index].nutrientId = selectedOption?.value;
+        newNutrients[index].unitId = selectedNutrient.defaultUnit.id;
         const newFoodItem = { ...foodItem, nutrients: newNutrients };
         setFoodItem(newFoodItem);
     };
 
     const handleNutrientUnitChange = (selectedOption, index) => {
         const newNutrients = [ ...foodItem.nutrients];
-        newNutrients[index].quantityUnitId = selectedOption.value;
+        newNutrients[index].unitId = selectedOption?.value;
         const newFoodItem = { ...foodItem, nutrients: newNutrients };
         setFoodItem(newFoodItem);
     };
 
     const addNutrient = () => {
         setNutrientUnitOptions([ ...nutrientUnitOptions, [ ] ]);
-        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { name: '', quantity: 0, nutrientId: '', quantityUnitId: '' }] });
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, nutrientId: '', unitId: '' }] });
     };
 
     const removeNutrient = (index) => {
@@ -272,12 +286,9 @@ const FoodItemForm = () => {
                         <label htmlFor={`servingSize-unit-type-${index}`}>Unit Type:</label>
                         <Select
                             id={`servingSize-unit-type-${index}`}
-                            options={unitTypes}
-                            isClearable={false}
-                            isSearchable={false}
-                            isDisabled={false}
+                            options={foodQuantityUnitTypes}
                             onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
-                            value={unitTypes.find(option => option.value == servingSize.unitType) || null}
+                            value={foodQuantityUnitTypes.find(option => option.value == servingSize.unitType) || null}
                         />
                     </div>
                     <div className='col'>
@@ -285,9 +296,6 @@ const FoodItemForm = () => {
                         <Select
                             id={`servingSize-unit-${index}`}
                             options={servingSizeUnitOptions[index]}
-                            isClearable={false}
-                            isSearchable={false}
-                            isDisabled={false}
                             onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
                             value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
                         />
@@ -322,6 +330,7 @@ const FoodItemForm = () => {
                         <label htmlFor={`foodItem-nutrient-${index}`}>Nutrient</label>
                         <Select
                             id={`foodItem-nutrient-${index}`}
+                            name="nutrientId"
                             options={nutrientOptions}
                             onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                             isClearable
@@ -345,10 +354,11 @@ const FoodItemForm = () => {
                         <label htmlFor={`foodItem-nutrient-${index}`}>Quantity Unit</label>
                         <Select
                             id={`foodItem-nutrient-${index}`}
+                            name="unitId"
                             options={nutrientUnitOptions[index]}
                             onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
                             isClearable
-                            value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.quantityUnitId) || null}
+                            value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.unitId) || null}
                         />
                     </div>
                     <div className="col-auto align-self-end">

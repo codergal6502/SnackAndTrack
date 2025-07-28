@@ -1,14 +1,47 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { getJson } from '../utilities/utilities';
-
 import Select from 'react-select';
 
 const RecipeForm = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
+
+    const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
+    const [unitDictionary, setUnitDictionary] = useState();
+
     const { id } = useParams();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        fetchUnits();
+    }, []);
+
+    useEffect(() => {
+        if (unitDictionary && id) {
+            fetchRecipe(id);
+        }
+    }, [unitDictionary, id]);
+
+    const fetchUnits = async () => {
+        let url = `/api/lookup/units`
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+            }
+
+            const units = await response.json();
+            const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
+            setUnitDictionary(newUnitDct);
+
+            setFoodQuantityUnitTypes(units.filter(unit => true === unit.canBeFoodQuantity).map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })))
+
+            return units;
+        }
+        catch (error) {
+            console.error(`Request to ${url} failed.`, error)
+        }
+    }
 
     // These three are arrays-of-arrays, e.g., [ [ ] ]
     const [ingredientFoodItemOptions, setIngredientFoodItemOptions] = useState([]);
@@ -16,9 +49,6 @@ const RecipeForm = () => {
     const [ingredientUnitOptions, setIngredientUnitOptions] = useState([]);
 
     const [amountMadeUnitOptions, setAmountMadeUnitOptions] = useState([]);
-
-    const [unitTypes, setUnitTypes] = useState([]);
-    const [units, setUnits] = useState([]);
 
     const fetchIngredientFoodItemOptions = async(index, q) => {
         const response = await fetch(`/api/fooditems?q=${q}`);
@@ -88,11 +118,12 @@ const RecipeForm = () => {
     };
 
     const handleIngredientUnitTypeChange = async(index, unitTypeOption) => {
+        debugger;
         const newUnitOptions = ingredientUnitOptions.slice();
 
         if (unitTypeOption?.value) {
-            const unitsForType = units.filter(u => u.unitType === unitTypeOption.value);
-            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.unitName }));
+            const unitsForType = Object.values(unitDictionary).filter(u => u.type === unitTypeOption.value);
+            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.name }));
             newUnitOptions[index] = unitOptions;
         }
         else {
@@ -119,34 +150,7 @@ const RecipeForm = () => {
         fetchAndSetIngredientFoodItemOptions(index, text);
     };
 
-    useEffect(() => {
-        if (id) {
-            fetchUnits().then((fetchedUnits) => fetchRecipe(id, fetchedUnits));
-        }
-    }, [id]);
-
-    const fetchUnits = async () => {
-        let url = `/api/lookup/units`
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-            }
-
-            const fetchedUnits = await response.json();
-            setUnits(fetchedUnits);
-
-            setUnitTypes(fetchedUnits.map(u => u.unitType).filter((value, index, array) => array.indexOf(value) === index).map(u => ({ value: u, label: u })));
-
-            return fetchedUnits;
-        }
-        catch (error) {
-            console.error(`Request to ${url} failed.`, error)
-            setUnits([]);
-        }
-    }
-
-    const fetchRecipe = async (id, initialUnits) => {
+    const fetchRecipe = async (id) => {
         const response = await fetch(`/api/recipes/${id}`);
         const data = await response.json();
 
@@ -156,10 +160,10 @@ const RecipeForm = () => {
         const initialIngredientUnitTypeOptions = data.ingredients.map((i) => i.quantityUnitTypeOptions.map(uto => ({ value: uto, label: uto })));
         setIngredientUnitTypeOptions(initialIngredientUnitTypeOptions);
 
-        const initialIngredientUnitOptions = data.ingredients.map((i) => initialUnits.filter(u => u.unitType === i.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
+        const initialIngredientUnitOptions = data.ingredients.map((i) => Object.values(unitDictionary).filter(u => u.type === i.quantityUnitType).map(u => ({ value: u.id, label: u.name })) );
         setIngredientUnitOptions(initialIngredientUnitOptions);
 
-        const amountsMadeInitialUnitOptions = data.amountsMade.map((am) => initialUnits.filter(u => u.unitType === am.quantityUnitType).map(u => ({ value: u.id, label: u.unitName })) );
+        const amountsMadeInitialUnitOptions = data.amountsMade.map((am) => Object.values(unitDictionary).filter(u => u.type === am.quantityUnitType).map(u => ({ value: u.id, label: u.name })) );
         setAmountMadeUnitOptions(amountsMadeInitialUnitOptions);
 
         setRecipe(data);
@@ -219,8 +223,9 @@ const RecipeForm = () => {
         const newUnitOptions = amountMadeUnitOptions.slice();
 
         if (unitTypeOption?.value) {
-            const unitsForType = units.filter(u => u.unitType === unitTypeOption.value);
-            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.unitName }));
+
+            const unitsForType = Object.values(unitDictionary).filter(u => u.type === unitTypeOption.value);
+            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.name }));
             newUnitOptions[index] = unitOptions;
         }
         else {
@@ -317,7 +322,7 @@ const RecipeForm = () => {
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="Off">
             <h4>Recipe</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -365,13 +370,12 @@ const RecipeForm = () => {
                         <label htmlFor={`amountMade-unit-type-${index}`}>Unit Type:</label>
                         <Select
                             id={`amountMade-unit-type-${index}`}
-                            options={unitTypes}
+                            options={foodQuantityUnitTypes}
                             name="amountMadeUnitType"
+                            isSearchable
                             isClearable={false}
-                            isSearchable={false}
-                            isDisabled={false}
                             onChange={(selectedOption) => handleAmountMadeUnitTypeChange(index, selectedOption)}
-                            value={unitTypes.find(option => option.value == amountMade.quantityUnitType) || null}
+                            value={foodQuantityUnitTypes.find(option => option.value == amountMade.quantityUnitType) || null}
                         />
                     </div>
                     <div className='col'>
@@ -380,8 +384,7 @@ const RecipeForm = () => {
                             id={`amountMade-unit-${index}`}
                             options={amountMadeUnitOptions[index]}
                             name="amountMadeUnitId"
-                            isClearable={false}
-                            isSearchable={false}
+                            isSearchable
                             isDisabled={false}
                             onChange={(selectedOption) => handleAmountMadeUnitChange(index, selectedOption)}
                             value={amountMadeUnitOptions[index]?.find(option => option.value === amountMade.quantityUnitId) || null}

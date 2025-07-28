@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
@@ -104,19 +103,19 @@ namespace SnackAndTrack.WebApp.Controllers {
             var conversions = unit.FromUnitConversions.ToList();
             var isOneThird = conversions.Single(c => c.ToUnit.Name == "Tablespoons");
 
-
             var recipe = await this
                 ._context
                 .Recipes
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.ServingSizes).ThenInclude(s => s.Unit)
-                    .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
+                    .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient).ThenInclude(n => n.DefaultUnit)
+                    .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Unit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
                     .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit).ThenInclude(u => u.ToUnitConversions).ThenInclude(c => c.FromUnit)
                 .SingleAsync(r => r.Id == id);
 
             var table = ComputeFoodItemFor(recipe);
             
-            return table;
+            return await table;
         }
 
         public class RecipeComputedFoodItemTableModel {
@@ -124,6 +123,11 @@ namespace SnackAndTrack.WebApp.Controllers {
             {
                 public required Guid NutrientId { get; set; }
                 public required String NutrientName { get; set; }
+                public required Single TotalQuantity { get; set; }
+                public required String NutrientUnitName { get; set; }
+                public required String NutrientUnitType { get; set; }
+                public required Guid NutrientUnitId { get; set; }
+                public required Int16 NutrientUnitDisplayOrder { get; set; }
 
                 public required IList<FoodItemContribution> FoodItemContributions { get; set; }
 
@@ -140,7 +144,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             public required IList<NutrientSummary> NutrientSummaries { get; set; }
         }
 
-        private RecipeComputedFoodItemTableModel ComputeFoodItemFor(Recipe recipe)
+        private async Task<RecipeComputedFoodItemTableModel> ComputeFoodItemFor(Recipe recipe)
         {
             RecipeComputedFoodItemTableModel table = new() { NutrientSummaries = [] };
 
@@ -165,7 +169,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 // That gets you how manu nutrient units per recipe.
 
                 Single recipeQuantity = recipeIngredient.Quantity;
-                Single unitConversion;
+                Single unitConversionForFoodItemServing;
 
                 var foodItem = recipeIngredient.FoodItem;
                 var recipeUnit = recipeIngredient.Unit;
@@ -173,14 +177,14 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                 var foodItemServingSize = foodItem.ServingSizes.Single(s => s.Unit.Type == recipeUnit.Type);
                 if (recipeUnit == foodItemServingSize.Unit) {
-                    unitConversion = 1; // they're literally the same.
+                    unitConversionForFoodItemServing = 1; // they're literally the same.
                 }
                 else {
-                    unitConversion = (Single) foodItemServingSize.Unit.FromUnitConversions.Single(c => c.ToUnit == recipeUnit).Ratio;
+                    unitConversionForFoodItemServing = (Single) foodItemServingSize.Unit.FromUnitConversions.Single(c => c.ToUnit == recipeUnit).Ratio;
                 }
 
                 // This gets us everything but the last bit in that computation.
-                var nutrientPerRecipeRatio = recipeQuantity / unitConversion / foodItemServingSize.Quantity;
+                var nutrientPerRecipeRatio = recipeQuantity / unitConversionForFoodItemServing / foodItemServingSize.Quantity;
 
                 foreach (var possibleNutrient in allNutrients) {
                     var fin = foodItem.FoodItemNutrients.SingleOrDefault(fin => fin.Nutrient == possibleNutrient);
@@ -195,6 +199,12 @@ namespace SnackAndTrack.WebApp.Controllers {
                             NutrientName = possibleNutrient.Name
                           , NutrientId = possibleNutrient.Id
                           , FoodItemContributions = []
+
+                          , NutrientUnitName = possibleNutrient.DefaultUnit.Name
+                          , NutrientUnitType = possibleNutrient.DefaultUnit.Type
+                          , NutrientUnitId = possibleNutrient.DefaultUnit.Id
+                          , NutrientUnitDisplayOrder = possibleNutrient.DisplayOrder
+                          , TotalQuantity = 0
                         };
 
                         table.NutrientSummaries.Add(nutrientSummary);
@@ -203,12 +213,23 @@ namespace SnackAndTrack.WebApp.Controllers {
                     nutrientSummary.FoodItemContributions.Add(new() {
                         NutrientQuantity = nutrientPerRecipe
                       , NutrientUnitId = recipeIngredient.Unit.Id
-                      , NutrientUnitName = recipeIngredient.Unit.Name
+                      , NutrientUnitName = fin?.Unit?.Name
                       , FoodItemName = foodItem.Name
                       , FoodItemId = foodItem.Id
                     });
 
-                    // Console.Out.WriteLine("{0} of {1} from {2}", nutrientPerRecipe, fin.Nutrient.Name, foodItem.Name);
+                    if (fin != null) {
+                        Single unitConversionForTotal;
+                        
+                        if (fin.Unit.Id != possibleNutrient.DefaultUnit.Id) {
+                            var conversion = await this._context.UnitConversions.Include(c => c.FromUnit).Include(c => c.ToUnit).SingleAsync(c => c.FromUnit.Id == fin.Unit.Id && c.ToUnit.Id == possibleNutrient.DefaultUnit.Id);
+                            unitConversionForTotal = conversion.Ratio;
+                        }
+                        else {
+                            unitConversionForTotal = 1; // they're literally the same ... again!
+                        }
+                        nutrientSummary.TotalQuantity += unitConversionForTotal * nutrientPerRecipe ?? 0;
+                    }
                 }
             }
 

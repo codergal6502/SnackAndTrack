@@ -9,7 +9,8 @@ namespace SnackAndTrack.WebApp.Models {
         public required ServingSize[] ServingSizes { get; set; }
 
         public class Nutrient {
-            public required String Name { get; set; }
+            public required Guid NutrientId { get; set; }
+            public required Guid UnitId { get; set; }
             public required Single Quantity { get; set; }
         }
 

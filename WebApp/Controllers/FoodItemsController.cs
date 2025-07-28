@@ -64,6 +64,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 ._context
                 .FoodItems
                 .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Nutrient)
+                .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Unit)
                 .Include(fi => fi.ServingSizes.OrderBy(s => s.DisplayOrder)).ThenInclude(s => s.Unit);
         }
 
@@ -76,8 +77,9 @@ namespace SnackAndTrack.WebApp.Controllers {
               , Brand = foodItem.Brand
               , Nutrients = (null == foodItem.FoodItemNutrients) ? [] : foodItem.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient
                 {
-                    Name = fin.Nutrient.Name
-                  , Quantity = fin.Quantity
+                    Quantity = fin.Quantity
+                  , NutrientId = fin.Nutrient.Id
+                  , UnitId = fin.Unit.Id
                 }).ToArray()
               , ServingSizes = (null == foodItem.ServingSizes) ? [] : foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
                     UnitId = s.Unit.Id
@@ -185,44 +187,33 @@ namespace SnackAndTrack.WebApp.Controllers {
 
             foreach (var i in nutrientModels.Select((x, i) => new { NutrientModel = x, Index = (Int16) i }))
             {
-                // var nutritionModel = i.NutrientModel;
-                // var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Name == nutritionModel.Name);
+                var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Id == i.NutrientModel.NutrientId);
 
-                // if (null == existingFoodItemNutrient)
-                // {
-                //     Nutrient nutrient = await _context.Nutrients.SingleAsync(n => n.Name == nutritionModel.Name);
+                Unit unit = await _context.Units.FindAsync(i.NutrientModel.UnitId) ?? throw new SnackAndTrackControllerException($"Could not find unit with ID {i.NutrientModel.UnitId}.");
 
-                //     if (null == nutrient)
-                //     {
-                //         nutrient = new Nutrient
-                //         {
-                //             Id = Guid.NewGuid()
-                //           , Name = nutritionModel.Name
-                //           , FoodItemNutrients = []
-                //         };
+                if (null == existingFoodItemNutrient)
+                {
+                    Nutrient nutrient = await _context.Nutrients.FindAsync(i.NutrientModel.NutrientId) ?? throw new SnackAndTrackControllerException($"Could not find nutrient with ID {i.NutrientModel.NutrientId}");
 
-                //         this._context.Add(nutrient);
-                //     }
+                    foodItem.FoodItemNutrients.Add(new FoodItemNutrient
+                    {
+                        Id = new Guid()
+                      , FoodItem = foodItem
+                      , Nutrient = nutrient
+                      , Quantity = i.NutrientModel.Quantity
+                      , DisplayOrder = i.Index
+                      , Unit = unit
+                    });
+                }
+                else
+                {
+                    existingFoodItemNutrient.Quantity = i.NutrientModel.Quantity;
+                    existingFoodItemNutrient.DisplayOrder = i.Index;
+                    existingFoodItemNutrient.Unit = unit;
 
-                //     foodItem.FoodItemNutrients.Add(new FoodItemNutrient
-                //     {
-                //         Id = new Guid()
-                //       , FoodItem = foodItem
-                //       , Nutrient = nutrient
-                //       , Quantity = nutritionModel.Quantity
-                //       , DisplayOrder = i.Index
-                //     });
-                // }
-                // else
-                // {
-                //     existingFoodItemNutrient.Quantity = nutritionModel.Quantity;
-                //     existingFoodItemNutrient.DisplayOrder = i.Index;
-
-                //     // Any that are left at the end should be removed from the database.
-                //     existingFoodItemNutrients.Remove(existingFoodItemNutrient);
-                // }
-
-                throw new NotImplementedException();
+                    // Any that are left at the end should be removed from the database.
+                    existingFoodItemNutrients.Remove(existingFoodItemNutrient);
+                }
             }
 
             // Any that are left at the end should be removed from the database.
