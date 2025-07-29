@@ -25,7 +25,7 @@ const FoodItemList = () => {
         <div>
             <h1>Food Items</h1>
             <Link to="/fooditemform" className="btn btn-primary mb-3">Add Food Item</Link>
-            <table className="table">
+            <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
                         <th>Name</th>

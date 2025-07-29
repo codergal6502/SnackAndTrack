@@ -8,7 +8,7 @@ import Select from 'react-select';
 // TODO: handle delete keys in empty fields
 
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [] });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
 
     const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState({});
@@ -30,6 +30,128 @@ const FoodItemForm = () => {
             fetchFoodItem(id);
         }
     }, [unitDictionary, id]);
+
+    const validateAndSetFoodItem = (foodItem) => {
+        const newFoodItem = { ... foodItem, "-show-errors": true };
+        validateFoodItem(newFoodItem);
+        
+        setFoodItem(newFoodItem);
+        return newFoodItem["-has-errors"];
+    }
+
+    const validateFoodItem = (newFoodItem) => {
+        let hasErrors = false;
+        foodItem["-show-errors"] = true
+
+        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation/
+        hasErrors = validateFoodItemName(newFoodItem) || hasErrors;
+        hasErrors = validateFoodItemServingSizes(newFoodItem) || hasErrors;
+        hasErrors = validateFoodItemNutrients(newFoodItem) || hasErrors;
+
+        newFoodItem["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateFoodItemName = (foodItem) => {
+        let hasErrors = false;
+
+        if (! (foodItem.name || "").trim()) {
+            foodItem["-error-name"] = "Food item name is required.";
+            hasErrors = true;
+        }
+        else {
+            delete foodItem["-error-name"];
+        }
+
+        foodItem["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateFoodItemServingSizes = (foodItem) => {
+        let hasErrors = false;
+        const newServingSizes = [... foodItem.servingSizes];
+
+        for (const servingSize of newServingSizes) {
+            hasErrors = validateServingSize(servingSize) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateServingSize = (servingSize) => {
+        let hasErrors = false;
+
+        if (! (servingSize.unitType || "").trim()) {
+            servingSize["-error-unitType"] = "Serving size unit type is required.";
+            hasErrors = true;
+        }
+        else {
+            delete servingSize["-error-unitType"];
+        }
+
+        if (! (servingSize.unitId || "").trim()) {
+            servingSize["-error-unitId"] = "Serving size unitis required.";
+            hasErrors = true;
+        }
+        else {
+            delete servingSize["-error-unitId"];
+        }
+
+        var quantityFloat = parseFloat(servingSize.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            servingSize["-error-quantity"] = "Serving size quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            servingSize["-error-quantity"] = "Serving size quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete servingSize["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
+
+    const validateFoodItemNutrients = (foodItem) => {
+        let hasErrors = false;
+        for (const nutrient of foodItem.nutrients) {
+            if (! (nutrient.nutrientId || "").trim()) {
+                nutrient["-error-nutrientId"] = "Nutrient is required.";
+                hasErrors = true;
+            }
+            else {
+                delete nutrient["-error-nutrientId"];
+            }
+            
+            if (! (nutrient.unitId || "").trim()) {
+                nutrient["-error-unitId"] = "Nutrient type is required.";
+                hasErrors = true;
+            }
+            else {
+                delete nutrient["-error-unitId"];
+            }
+
+            var quantityFloat = parseFloat(nutrient.quantity);
+
+            if (isNaN(quantityFloat)) {
+                // Probably impossible.
+                nutrient["-error-quantity"] = "Nutrient quantity must be a number.";
+                hasErrors = true;
+            }
+            else if (0 >= quantityFloat) {
+                nutrient["-error-quantity"] = "Nutrient quantity must be positive.";
+                hasErrors = true;
+            }
+            else {
+                delete nutrient["-error-quantity"];
+            }
+        }
+    }
 
     const fetchNutrients = async() => {
         let url = `/api/lookup/nutrients`
@@ -98,14 +220,21 @@ const FoodItemForm = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFoodItem({ ...foodItem, [name]: value });
+        const newFoodItem = { ...foodItem, [name]: value };
+        validateFoodItem(newFoodItem);
+        setFoodItem({ ...newFoodItem, [name]: value });
     };
 
     const handleServingSizeChange = (index, e) => {
         const { name, value } = e.target;
         const servingSizes = [...foodItem.servingSizes];
         servingSizes[index] = { ...servingSizes[index], [name]: value };
-        setFoodItem({ ...foodItem, servingSizes: servingSizes});
+        const newFoodItem = { ...foodItem, servingSizes: servingSizes};
+
+        // validateServingSize(servingSizes[index]);
+        validateFoodItem(newFoodItem);
+
+        setFoodItem(newFoodItem)
     };
 
     const handleServingSizeUnitTypeSelectionChange = (index, selectedOption) => {
@@ -118,6 +247,10 @@ const FoodItemForm = () => {
         const newServingSizes = [ ...foodItem.servingSizes];
         newServingSizes[index].unitType = selectedOption?.value;
         const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
+
+        // validateServingSize(newServingSizes[index]);
+        validateFoodItem(newFoodItem);
+
         setFoodItem(newFoodItem);
     };
 
@@ -125,6 +258,10 @@ const FoodItemForm = () => {
         const newServingSizes = [ ...foodItem.servingSizes];
         newServingSizes[index].unitId = selectedOption?.value;
         const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
+
+        // validateServingSize(newServingSizes[index]);
+        validateFoodItem(newFoodItem);
+
         setFoodItem(newFoodItem);
     };
 
@@ -245,26 +382,45 @@ const FoodItemForm = () => {
         }
     }
 
+/*
+
+// this might be useful for validation and other form stuff????
+
+const ParentComponent = ({ prop1, prop2, prop3, children }) => {
+    return (
+        <div>
+            {}
+            <div>{children}</div>
+        </div>
+    );
+};
+
+*/
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (id) {
-            await fetch(`/api/fooditems/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(foodItem),
-            });
-        } else {
-            await fetch('/api/fooditems', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(foodItem),
-            });
+        const hasErrors = validateAndSetFoodItem(foodItem);
+
+        if (!hasErrors) {
+            if (id) {
+                await fetch(`/api/fooditems/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(foodItem),
+                });
+            } else {
+                await fetch('/api/fooditems', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(foodItem),
+                });
+            }
+            navigate('/FoodItemList');
         }
-        navigate('/FoodItemList');
     };
 
     const handleAnchorClick = async (e) => {
@@ -277,6 +433,8 @@ const FoodItemForm = () => {
         {(foodItem.generatedFromId) && ( <div>This food item was generated from the recipe for <a href={`/recipeform/${foodItem.generatedFromId}`} onClick={(e) => handleAnchorClick(e)}>{foodItem.generatedFromName}</a> and cannot be edited.</div> )}
         <form autoComplete="off" onSubmit={handleSubmit}>
             <h4>Food Item</h4>
+            {(foodItem["-show-errors"]) && (foodItem["-has-errors"]) && (<div className='error-message'>Please correct any errors and try saving again.</div>)}
+
             <div className="d-flex mb-3">
                 <div className="me-3">
                     <label htmlFor="foodItem-name" className="form-label">Name:</label>
@@ -284,11 +442,11 @@ const FoodItemForm = () => {
                         id="foodItem-name"
                         type="text"
                         name="name"
-                        className="form-control"
+                        className={`form-control ${(foodItem["-error-name"]) ? "is-invalid" : ""}`}
                         value={foodItem?.name}
                         onChange={handleChange}
-                        required
                     />
+                    <div className='error-message'>{foodItem["-error-name"]}</div>
                 </div>
                 <div className="me-3">
                     <label htmlFor="foodItem-brand" className="form-label">Brand:</label>
@@ -305,56 +463,108 @@ const FoodItemForm = () => {
             
             <h5>Serving Sizes</h5>
             
-            {foodItem.servingSizes.map((servingSize, index) => (
-                <div key={index} className="row mb-3">
-                    <div className='col'>
-                        <label htmlFor={`servingSize-unit-type-${index}`}>Unit Type:</label>    
-                        <Select
-                            id={`servingSize-unit-type-${index}`}
-                            options={(() => {
-                                const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(s => s.unitType);
-                                return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
-                            })()}
-                            onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
-                            value={foodQuantityUnitTypes.find(option => option.value == servingSize.unitType) || null}
-                            classNamePrefix="react-select" // Use classNamePrefix for react-select
-                            // className="is-invalid" // Add is-invalid class for styling
-                        />
-                    </div>
-                    <div className='col'>
-                        <label htmlFor={`servingSize-unit-${index}`}>Unit:</label>
-                        <Select
-                            id={`servingSize-unit-${index}`}
-                            options={servingSizeUnitOptions[index]}
-                            onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
-                            value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
-                            classNamePrefix="react-select" // Use classNamePrefix for react-select
-                        />
-                    </div>                    
-                    <div className="col">
-                        <label htmlFor={`servingSize-quantity-${index}`}>Quantity:</label>
-                        <input
-                            id={`servingSize-quantity-${index}`}
-                            type="number"
-                            name="quantity"
-                            className="form-control is-invalid"
-                            value={servingSize.quantity}
-                            onChange={(e) => handleServingSizeChange(index, e)}
-                            placeholder="Quantity"
-                            required
-                        />
-                    </div>
-                    {!(foodItem.generatedFromId) && (
-                        <div className="col-auto align-self-end">
-                            <div className="btn-group" role="group" aria-label="Button group">
-                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ))}
+
+            <table className='table table-striped table-bordered'>
+                <thead>
+                    <tr>
+                        <th style={{width:"33%"}} scope="col">Unit Type</th>
+                        <th style={{width:"33%"}} scope="col">Unit</th>
+                        <th style={{width:"33%"}} scope="col">Quantity</th>
+                        {!(foodItem.generatedFromId) && (<th style={{width: "1%", whiteSpace: "nowrap"}} scope="col">Actions</th>)}
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {foodItem.servingSizes.map((servingSize, index) => (
+                        <tr key={index}>
+                            <td style={{width:"33%"}}>
+                                <div class="form-group">
+                                    {(() => {
+                                        const currentId = `servingSize-unit-type-${index}`;
+                                        return (
+                                            <div className='col'>
+                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
+                                                <Select
+                                                    id={currentId}
+                                                    options={(() => {
+                                                        const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(s => s.unitType);
+                                                        return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
+                                                    })()}
+                                                    onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
+                                                    value={foodQuantityUnitTypes.find(option => option.value == servingSize.unitType) || null}
+                                                    classNamePrefix="react-select"
+                                                    className={`${servingSize["-error-unitType"] ? 'is-invalid' : ''}`}
+                                                    placeholder="unit type"
+                                                />
+                                                <div className='error-message'>{servingSize["-error-unitType"]}</div>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </td>
+                            <td style={{width:"33%"}}>
+                                <div class="form-group">
+                                    {(() => {
+                                        const currentId = `servingSize-unit-${index}`;
+                                        return (
+                                            <div className='col'>
+                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
+                                                <Select
+                                                    id={currentId}
+                                                    options={servingSizeUnitOptions[index]}
+                                                    onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
+                                                    value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
+                                                    classNamePrefix="react-select"
+                                                    className={`${servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
+                                                    placeholder="unit"
+                                                />
+                                                <div className='error-message'>{servingSize["-error-unitId"]}</div>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </td>
+                            <td style={{width:"33%"}}>
+                                <div class="form-group">
+                                    {(() => {
+                                        const currentId = `servingSize-quantity-${index}`;
+                                        return (
+                                            <div>
+                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
+                                                <input
+                                                    id={currentId}
+                                                    type="
+                                                    "
+                                                    name="quantity"
+                                                    className={`form-control ${(servingSize["-error-quantity"]) ? "is-invalid" : ""}`}
+                                                    value={servingSize.quantity}
+                                                    onChange={(e) => handleServingSizeChange(index, e)}
+                                                    placeholder="quantity"
+                                                    required
+                                                />
+                                                <div className='error-message'>{servingSize["-error-quantity"]}</div>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </td>
+                            {!(foodItem.generatedFromId) && (
+                                    <td style={{width: "1%", whiteSpace: "nowrap"}}>
+                                        <div class="form-group">
+                                        <div className="col-auto align-self-end">
+                                            <div className="btn-group" role="group" aria-label="Button group">
+                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            )}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
             {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= foodQuantityUnitTypes.length} onClick={addServingSize}>Add Serving Size</button>)}
             <h5>Nutrition Information per Serving</h5>
             {foodItem.nutrients.map((nutrient, index) => (
@@ -373,15 +583,13 @@ const FoodItemForm = () => {
                                     }) })
                                 });
 
-                                // let ret = nutrientOptions.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
-                                // // return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
                                 return ret;
                             })()}    
                             onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                             isClearable
                             value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
-                            classNamePrefix="react-select" // Use classNamePrefix for react-select
-                            className="is-invalid" // Add is-invalid class for styling
+                            classNamePrefix="react-select"
+                            className=""
                         />
                     </div>
                     <div className="col">

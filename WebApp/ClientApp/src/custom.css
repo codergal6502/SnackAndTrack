@@ -30,3 +30,7 @@ code {
 .is-invalid .react-select__control {
   border-color: #dc3545;
 }
+
+.error-message {
+  color: #dc3545;
+}
