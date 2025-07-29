@@ -364,7 +364,19 @@ const FoodItemForm = () => {
                         <Select
                             id={`foodItem-nutrient-${index}`}
                             name="nutrientId"
-                            options={nutrientOptions}
+                            options={(() => {
+                                const otherSelections = foodItem.nutrients.filter((_, idx) => idx != index).map(n => n.nutrientId);
+
+                                let ret = nutrientOptions.map(grp => {
+                                    return ({ ... grp, options: grp.options.filter(opt => {
+                                        return otherSelections.indexOf(opt.value) < 0; 
+                                    }) })
+                                });
+
+                                // let ret = nutrientOptions.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
+                                // // return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
+                                return ret;
+                            })()}    
                             onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                             isClearable
                             value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
@@ -411,7 +423,7 @@ const FoodItemForm = () => {
                 <>
                     <div className="row mb-3">
                         <div className="col-auto align-self-end">
-                            <button type="button" className="btn btn-secondary" onClick={addNutrient}>Add Nutrient</button>
+                            <button type="button" className="btn btn-secondary" disabled={foodItem.nutrients.length >= Object.keys(nutrientDictionary).length} onClick={addNutrient}>Add Nutrient</button>
                         </div>
                     </div>
                     <h5>Actions</h5>
