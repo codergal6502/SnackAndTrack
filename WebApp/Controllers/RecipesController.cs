@@ -360,7 +360,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 }
 
                 if (null == existingRecipeIngredient) {
-                    FoodItem? foodItem = await _context.FoodItems.SingleOrDefaultAsync(u => u.Id == ingredientModel.FoodItemId);
+                    FoodItem? foodItem = await _context.FoodItems.Include(fi => fi.ServingSizes).ThenInclude(s => s.Unit).SingleOrDefaultAsync(u => u.Id == ingredientModel.FoodItemId);
 
                     if (null == foodItem) {
                         throw new SnackAndTrackControllerException($"Searched for food item {ingredientModel.FoodItemId} but 0 or multiple.");
@@ -375,7 +375,6 @@ namespace SnackAndTrack.WebApp.Controllers {
                       , DisplayOrder = i.Index
                     };
 
-                    this._context.Add(recipeIngredient);
                     recipe.RecipeIngredients.Add(recipeIngredient);
                 }
                 else {

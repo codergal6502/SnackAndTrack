@@ -49,7 +49,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureNutrient("Riboflavin",                   "Milligrams", (Single) 1.3,  "Micronutrients", displayOrder += 10);
             EnsureNutrient("Niacin (NE)",                  "Milligrams", (Single) 16,   "Micronutrients", displayOrder += 10);
             EnsureNutrient("Vitamin B6",                   "Milligrams", (Single) 1.7,  "Micronutrients", displayOrder += 10);
-            EnsureNutrient("Folate",                       "Micrograms", null,          "Micronutrients", displayOrder += 10);
+            EnsureNutrient("Folic Acid",                   "Micrograms", null,          "Micronutrients", displayOrder += 10);
             EnsureNutrient("Vitamin B12",                  "Micrograms", (Single) 2.4,  "Micronutrients", displayOrder += 10);
             EnsureNutrient("Pantothenic Acid",             "Milligrams", (Single) 5,    "Micronutrients", displayOrder += 10);
             EnsureNutrient("Choline",                      "Milligrams", (Single) 550,  "Micronutrients", displayOrder += 10);
@@ -63,7 +63,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureNutrient("Molybdenum",                   "Micrograms", (Single) 45,   "Micronutrients", displayOrder += 10);
             EnsureNutrient("Omega-3 Fatty Acids",          "Grams",      null,          "Micronutrients", displayOrder += 10);
             EnsureNutrient("Omega-6 Fatty Acids",          "Grams",      null,          "Micronutrients", displayOrder += 10);
-            EnsureNutrient("Folate DEF",                   "Micrograms", (Single) 400,  "Micronutrients", displayOrder += 10);
+            EnsureNutrient("Folate DFE",                   "Micrograms", (Single) 400,  "Micronutrients", displayOrder += 10);
             EnsureNutrient("Chloride",                     "Milligrams", (Single) 2300, "Micronutrients", displayOrder += 10);
             EnsureNutrient("Iodine",                       "Micrograms", (Single) 150,  "Micronutrients", displayOrder += 10);
 
