@@ -63,6 +63,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             return this
                 ._context
                 .FoodItems
+                .Include(fi => fi.GeneratedFrom)
                 .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Nutrient)
                 .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Unit)
                 .Include(fi => fi.ServingSizes.OrderBy(s => s.DisplayOrder)).ThenInclude(s => s.Unit);
@@ -75,6 +76,8 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = foodItem.Id
               , Name = foodItem.Name
               , Brand = foodItem.Brand
+              , GeneratedFromName = foodItem.GeneratedFrom?.Name
+              , GeneratedFromId = foodItem.GeneratedFrom?.Id
               , Nutrients = (null == foodItem.FoodItemNutrients) ? [] : foodItem.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient
                 {
                     Quantity = fin.Quantity

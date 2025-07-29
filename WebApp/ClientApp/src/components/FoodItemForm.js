@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', servingSizes: [], nutrients: [] });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: '', generatedFromName: '', servingSizes: [], nutrients: [] });
 
     const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState({});
@@ -250,8 +250,15 @@ const FoodItemForm = () => {
         navigate('/FoodItemList');
     };
 
+    const handleAnchorClick = async (e) => {
+        e.preventDefault();
+        navigate(e.currentTarget.pathname);
+    };
+
     return (
-        <form autoComplete="off" onSubmit={handleSubmit}>
+        <>
+        {(foodItem.generatedFromId) && ( <div>This food item was generated from the recipe for <a href={`/recipeform/${foodItem.generatedFromId}`} onClick={(e) => handleAnchorClick(e)}>{foodItem.generatedFromName}</a> and cannot be edited.</div> )}
+        <form autoComplete="off" onSubmit={handleSubmit} inert={foodItem.generatedFromId}>
             <h4>Food Item</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -278,6 +285,7 @@ const FoodItemForm = () => {
                     />
                 </div>
             </div>
+            
             <h5>Serving Sizes</h5>
             
             {foodItem.servingSizes.map((servingSize, index) => (
@@ -313,16 +321,18 @@ const FoodItemForm = () => {
                             required
                         />
                     </div>
-                    <div className="col-auto align-self-end">
-                        <div className="btn-group" role="group" aria-label="Button group">
-                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
+                    {!(foodItem.generatedFromId) && (
+                        <div className="col-auto align-self-end">
+                            <div className="btn-group" role="group" aria-label="Button group">
+                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ))}
-            <button type="button" className="btn btn-secondary mb-3" onClick={addServingSize}>Add Serving Size</button>
+            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" onClick={addServingSize}>Add Serving Size</button>)}
             <h5>Nutrition Information per Serving</h5>
             {foodItem.nutrients.map((nutrient, index) => (
                 <div key={index} className="row mb-3">
@@ -361,30 +371,37 @@ const FoodItemForm = () => {
                             value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.unitId) || null}
                         />
                     </div>
-                    <div className="col-auto align-self-end">
-                        <div className="btn-group" role="group" aria-label="Button group">
-                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
+                    {!(foodItem.generatedFromId) && (
+                        <div className="col-auto align-self-end">
+                            <div className="btn-group" role="group" aria-label="Button group">
+                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ))}
-            <div className="row mb-3">
-                <div className="col-auto align-self-end">
-                    <button type="button" className="btn btn-secondary" onClick={addNutrient}>Add Nutrient</button>
-                </div>
-            </div>
-            <h5>Actions</h5>
-            <div className="row mb-3">
-                <div className="col-auto align-self-end">
-                    <button type="submit" className="btn btn-primary">Save</button>
-                </div>
-                <div className="col-auto align-self-end">
-                    <button type="button" className="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
-                </div>
-            </div>
+            {!(foodItem.generatedFromId) && (
+                <>
+                    <div className="row mb-3">
+                        <div className="col-auto align-self-end">
+                            <button type="button" className="btn btn-secondary" onClick={addNutrient}>Add Nutrient</button>
+                        </div>
+                    </div>
+                    <h5>Actions</h5>
+                    <div className="row mb-3">
+                        <div className="col-auto align-self-end">
+                            <button type="submit" className="btn btn-primary">Save</button>
+                        </div>
+                        <div className="col-auto align-self-end">
+                            <button type="button" className="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
+                        </div>
+                    </div>
+                </>
+            )}
         </form>
+        </>
     );
 };
 
