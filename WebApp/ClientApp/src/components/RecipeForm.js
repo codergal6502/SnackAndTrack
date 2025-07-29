@@ -444,8 +444,6 @@ const RecipeForm = () => {
                             id={`ingredient-unit-type-${index}`}
                             options={ingredientUnitTypeOptions[index]}
                             name="quantityUnitType"
-                            isClearable={false}
-                            isSearchable={false}
                             isDisabled={false}
                             onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption)}
                             value={ingredientUnitTypeOptions[index]?.find(option => option.value == ingredient.quantityUnitType) || null}
@@ -457,8 +455,6 @@ const RecipeForm = () => {
                             id={`ingredient-unit-${index}`}
                             options={ingredientUnitOptions[index]}
                             name="quantityUnitId"
-                            isClearable={false}
-                            isSearchable={false}
                             isDisabled={false}
                             onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
                             value={ingredientUnitOptions[index]?.find(option => option.value === ingredient.quantityUnitId) || null}

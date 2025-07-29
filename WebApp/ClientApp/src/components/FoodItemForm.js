@@ -3,8 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import Select from 'react-select';
 
+// TODO: any kind of validation at all
+// TODO: filter out empty rows
+// TODO: handle delete keys in empty fields
+
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: '', generatedFromName: '', servingSizes: [], nutrients: [] });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [] });
 
     const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState({});
@@ -169,18 +173,31 @@ const FoodItemForm = () => {
     };
 
     const handleNutrientSelectionChange = (index, selectedOption) => {
-        const selectedNutrient = nutrientDictionary[selectedOption.value];
-        const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
+        if (selectedOption) {
+            const selectedNutrient = nutrientDictionary[selectedOption.value];
+            const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
 
-        const newUnitOptions = [...nutrientUnitOptions];
-        newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
-        setNutrientUnitOptions(newUnitOptions);
+            const newUnitOptions = [...nutrientUnitOptions];
+            newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
+            setNutrientUnitOptions(newUnitOptions);
 
-        const newNutrients = [ ...foodItem.nutrients];
-        newNutrients[index].nutrientId = selectedOption?.value;
-        newNutrients[index].unitId = selectedNutrient.defaultUnit.id;
-        const newFoodItem = { ...foodItem, nutrients: newNutrients };
-        setFoodItem(newFoodItem);
+            const newNutrients = [ ...foodItem.nutrients];
+            newNutrients[index].nutrientId = selectedOption?.value;
+            newNutrients[index].unitId = selectedNutrient.defaultUnit.id;
+            const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            setFoodItem(newFoodItem);
+        }
+        else {
+            const newUnitOptions = [...nutrientUnitOptions];
+            newUnitOptions[index] = [];
+            setNutrientUnitOptions(newUnitOptions);
+
+            const newNutrients = [ ...foodItem.nutrients];
+            newNutrients[index].nutrientId = null;
+            newNutrients[index].unitId = null;
+            const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            setFoodItem(newFoodItem);
+        }
     };
 
     const handleNutrientUnitChange = (selectedOption, index) => {
@@ -192,7 +209,7 @@ const FoodItemForm = () => {
 
     const addNutrient = () => {
         setNutrientUnitOptions([ ...nutrientUnitOptions, [ ] ]);
-        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, nutrientId: '', unitId: '' }] });
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, nutrientId: null, unitId: null }] });
     };
 
     const removeNutrient = (index) => {
@@ -258,7 +275,7 @@ const FoodItemForm = () => {
     return (
         <>
         {(foodItem.generatedFromId) && ( <div>This food item was generated from the recipe for <a href={`/recipeform/${foodItem.generatedFromId}`} onClick={(e) => handleAnchorClick(e)}>{foodItem.generatedFromName}</a> and cannot be edited.</div> )}
-        <form autoComplete="off" onSubmit={handleSubmit} inert={foodItem.generatedFromId}>
+        <form autoComplete="off" onSubmit={handleSubmit}>
             <h4>Food Item</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -291,12 +308,17 @@ const FoodItemForm = () => {
             {foodItem.servingSizes.map((servingSize, index) => (
                 <div key={index} className="row mb-3">
                     <div className='col'>
-                        <label htmlFor={`servingSize-unit-type-${index}`}>Unit Type:</label>
+                        <label htmlFor={`servingSize-unit-type-${index}`}>Unit Type:</label>    
                         <Select
                             id={`servingSize-unit-type-${index}`}
-                            options={foodQuantityUnitTypes}
+                            options={(() => {
+                                const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(s => s.unitType);
+                                return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
+                            })()}
                             onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
                             value={foodQuantityUnitTypes.find(option => option.value == servingSize.unitType) || null}
+                            classNamePrefix="react-select" // Use classNamePrefix for react-select
+                            // className="is-invalid" // Add is-invalid class for styling
                         />
                     </div>
                     <div className='col'>
@@ -306,6 +328,7 @@ const FoodItemForm = () => {
                             options={servingSizeUnitOptions[index]}
                             onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
                             value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
+                            classNamePrefix="react-select" // Use classNamePrefix for react-select
                         />
                     </div>                    
                     <div className="col">
@@ -314,7 +337,7 @@ const FoodItemForm = () => {
                             id={`servingSize-quantity-${index}`}
                             type="number"
                             name="quantity"
-                            className="form-control"
+                            className="form-control is-invalid"
                             value={servingSize.quantity}
                             onChange={(e) => handleServingSizeChange(index, e)}
                             placeholder="Quantity"
@@ -332,7 +355,7 @@ const FoodItemForm = () => {
                     )}
                 </div>
             ))}
-            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" onClick={addServingSize}>Add Serving Size</button>)}
+            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= foodQuantityUnitTypes.length} onClick={addServingSize}>Add Serving Size</button>)}
             <h5>Nutrition Information per Serving</h5>
             {foodItem.nutrients.map((nutrient, index) => (
                 <div key={index} className="row mb-3">
@@ -345,6 +368,8 @@ const FoodItemForm = () => {
                             onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                             isClearable
                             value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
+                            classNamePrefix="react-select" // Use classNamePrefix for react-select
+                            className="is-invalid" // Add is-invalid class for styling
                         />
                     </div>
                     <div className="col">

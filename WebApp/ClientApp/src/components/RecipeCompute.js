@@ -144,7 +144,7 @@ const RecipeCompute = () => {
                                             <td key={index}>{ typeof(foodItemContribution.nutrientQuantity) != "number" ?  '-' : `${rounded } ${foodItemContribution.nutrientUnitName}` }</td>
                                         );
                                     }))}
-                                    <td>{Math.round(nutrientSummary.totalQuantity)} {nutrientSummary.nutrientUnitName}</td>
+                                    <td>{Math.round(nutrientSummary.totalQuantity)} {nutrientSummary.nutrientUnitName} {(nutrientSummary.percentDailyValue) && ( `(${Math.round(nutrientSummary.percentDailyValue)}% dv)` ) }</td>
                                 </tr>
                             );}))}
                         </tbody>

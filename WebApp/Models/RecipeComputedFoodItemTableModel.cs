@@ -11,8 +11,9 @@ namespace SnackAndTrack.WebApp.Models {
                 public required Int16 NutrientUnitDisplayOrder { get; set; }
 
                 public required IList<FoodItemContribution> FoodItemContributions { get; set; }
+                public required Single? PercentDailyValue { get; set; }
 
-                public class FoodItemContribution
+            public class FoodItemContribution
                 {
                     public required Single? NutrientQuantity { get; set; }
                     public required String? NutrientUnitName { get; set; }

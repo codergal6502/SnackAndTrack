@@ -231,6 +231,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                           , NutrientUnitId = possibleNutrient.DefaultUnit.Id
                           , NutrientUnitDisplayOrder = possibleNutrient.DisplayOrder
                           , TotalQuantity = 0
+                          , PercentDailyValue = (Single?) null
                         };
 
                         table.NutrientSummaries.Add(nutrientSummary);
@@ -254,7 +255,13 @@ namespace SnackAndTrack.WebApp.Controllers {
                         else {
                             unitConversionForTotal = 1; // they're literally the same ... again!
                         }
-                        nutrientSummary.TotalQuantity += unitConversionForTotal * nutrientPerRecipe ?? 0;
+                        var nutrientQuantityInRecipe = unitConversionForTotal * nutrientPerRecipe ?? 0;
+                        nutrientSummary.TotalQuantity += nutrientQuantityInRecipe;
+
+                        if (null != possibleNutrient.CurrentDailyValue) {
+                            nutrientSummary.PercentDailyValue ??= 0;
+                            nutrientSummary.PercentDailyValue += nutrientQuantityInRecipe / possibleNutrient.CurrentDailyValue * 100;
+                        }
                     }
                 }
             }
