@@ -118,7 +118,6 @@ const RecipeForm = () => {
     };
 
     const handleIngredientUnitTypeChange = async(index, unitTypeOption) => {
-        debugger;
         const newUnitOptions = ingredientUnitOptions.slice();
 
         if (unitTypeOption?.value) {

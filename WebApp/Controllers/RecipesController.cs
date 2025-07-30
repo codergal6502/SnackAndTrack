@@ -376,6 +376,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                     };
 
                     recipe.RecipeIngredients.Add(recipeIngredient);
+                    _context.Add(recipeIngredient);
                 }
                 else {
                     existingRecipeIngredient.Unit = unit;
