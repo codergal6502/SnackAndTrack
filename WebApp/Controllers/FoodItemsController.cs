@@ -162,7 +162,6 @@ namespace SnackAndTrack.WebApp.Controllers {
                 if (null == existingServingSize) {
 
                     ServingSize servingSize = new ServingSize { Id = Guid.NewGuid(), FoodItem = foodItem, Quantity = servingSizeModel.Quantity, Unit = unit, DisplayOrder =  i.Index };
-                    this._context.Add(servingSize);
                     foodItem.ServingSizes.Add(servingSize);
                 }
                 else {

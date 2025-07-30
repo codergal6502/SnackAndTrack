@@ -118,6 +118,7 @@ const FoodItemForm = () => {
 
     const validateFoodItemNutrients = (foodItem) => {
         let hasErrors = false;
+
         for (const nutrient of foodItem.nutrients) {
             if (! (nutrient.nutrientId || "").trim()) {
                 nutrient["-error-nutrientId"] = "Nutrient is required.";
@@ -128,7 +129,7 @@ const FoodItemForm = () => {
             }
             
             if (! (nutrient.unitId || "").trim()) {
-                nutrient["-error-unitId"] = "Nutrient type is required.";
+                nutrient["-error-unitId"] = "Nutrient unit is required.";
                 hasErrors = true;
             }
             else {
@@ -150,6 +151,8 @@ const FoodItemForm = () => {
                 delete nutrient["-error-quantity"];
             }
         }
+
+        return hasErrors;
     }
 
     const fetchNutrients = async() => {
@@ -576,64 +579,100 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                 </thead>
                 <tbody>
                     {foodItem.nutrients.map((nutrient, index) => (
-                        <div key={index} className="row mb-3">
-                            <div className="col">
-                                <label htmlFor={`foodItem-nutrient-${index}`}>Nutrient</label>
-                                <Select
-                                    id={`foodItem-nutrient-${index}`}
-                                    name="nutrientId"
-                                    options={(() => {
-                                        const otherSelections = foodItem.nutrients.filter((_, idx) => idx != index).map(n => n.nutrientId);
+                        <tr key={index}>
+                            <td style={{width:"33%"}}>
+                                <div className="form-group">
+                                    {(() => {
+                                        const currentId = `servingSize-unit-type-${index}`;
+                                        return (
+                                            <div className="col">
+                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Nutrient</label>
+                                                <Select
+                                                    id={`foodItem-nutrient-${index}`}
+                                                    name="nutrientId"
+                                                    options={(() => {
+                                                        const otherSelections = foodItem.nutrients.filter((_, idx) => idx != index).map(n => n.nutrientId);
 
-                                        let ret = nutrientOptions.map(grp => {
-                                            return ({ ... grp, options: grp.options.filter(opt => {
-                                                return otherSelections.indexOf(opt.value) < 0; 
-                                            }) })
-                                        });
+                                                        let ret = nutrientOptions.map(grp => {
+                                                            return ({ ... grp, options: grp.options.filter(opt => {
+                                                                return otherSelections.indexOf(opt.value) < 0; 
+                                                            }) })
+                                                        });
 
-                                        return ret;
-                                    })()}    
-                                    onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
-                                    isClearable
-                                    value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
-                                    classNamePrefix="react-select"
-                                    className=""
-                                />
-                            </div>
-                            <div className="col">
-                                <label htmlFor={`foodItem-nutrient-${index}`}>Quantity</label>
-                                <input
-                                    id={`foodItem-nutrient-${index}`}
-                                    type="number"
-                                    name="quantity"
-                                    className="form-control"
-                                    value={nutrient.quantity}
-                                    onChange={(e) => handleNutrientChange(index, e)}
-                                    placeholder="Quantity"
-                                    required
-                                />
-                            </div>
-                            <div className="col">
-                                <label htmlFor={`foodItem-nutrient-${index}`}>Quantity Unit</label>
-                                <Select
-                                    id={`foodItem-nutrient-${index}`}
-                                    name="unitId"
-                                    options={nutrientUnitOptions[index]}
-                                    onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
-                                    isClearable
-                                    value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.unitId) || null}
-                                />
-                            </div>
-                            {!(foodItem.generatedFromId) && (
-                                <div className="col-auto align-self-end">
-                                    <div className="btn-group" role="group" aria-label="Button group">
-                                        <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                        <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                        <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
-                                    </div>
+                                                        return ret;
+                                                    })()}    
+                                                    onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
+                                                    isClearable
+                                                    value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
+                                                    classNamePrefix="react-select"
+                                                    className={`${foodItem["-show-errors"] && nutrient["-error-nutrientId"] ? 'is-invalid' : ''}`}
+                                                />
+                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-nutrientId"]}</div>))}
+                                            </div>
+                                        )
+                                    })()}
                                 </div>
+                            </td>
+                            <td style={{width:"33%"}}>
+                                <div className="form-group">
+                                    {(() => {
+                                        const currentId = `servingSize-unit-type-${index}`;
+                                        return (
+                                            <div className="col">
+                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Quantity</label>
+                                                <input
+                                                    id={`foodItem-nutrient-${index}`}
+                                                    type="number"
+                                                    name="quantity"
+                                                    className={`form-control ${(foodItem["-show-errors"] && nutrient["-error-quantity"]) ? "is-invalid" : ""}`}
+                                                    value={nutrient.quantity}
+                                                    onChange={(e) => handleNutrientChange(index, e)}
+                                                    placeholder="Quantity"
+                                                    required
+                                                />
+                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-quantity"]}</div>))}
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </td>
+                            <td style={{width:"33%"}}>
+                                <div className="form-group">
+                                    {(() => {
+                                        const currentId = `nutrient-unit-type-${index}`;
+                                        return (
+                                            <div className="col">
+                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Quantity Unit</label>
+                                                <Select
+                                                    id={`foodItem-nutrient-${index}`}
+                                                    name="unitId"
+                                                    options={nutrientUnitOptions[index]}
+                                                    onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
+                                                    isClearable
+                                                    classNamePrefix="react-select"
+                                                    className={`${foodItem["-show-errors"] && nutrient["-error-unitId"] ? 'is-invalid' : ''}`}
+                                                    value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.unitId) || null}
+                                                />
+                                                    {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </td>
+                            {!(foodItem.generatedFromId) && (
+                                <td style={{width: "1%", whiteSpace: "nowrap"}}>
+                                    <div className="form-group">
+                                        <div className="col-auto align-self-end">
+                                            <div className="btn-group" role="group" aria-label="Button group">
+                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
                             )}
-                        </div>
+                        </tr>
                     ))}
                 </tbody>
             </table>

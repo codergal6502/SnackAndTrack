@@ -66,6 +66,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureNutrient("Folate DFE",                   "Micrograms", (Single) 400,  "Micronutrients", displayOrder += 10);
             EnsureNutrient("Chloride",                     "Milligrams", (Single) 2300, "Micronutrients", displayOrder += 10);
             EnsureNutrient("Iodine",                       "Micrograms", (Single) 150,  "Micronutrients", displayOrder += 10);
+            EnsureNutrient("Bromelain",                    "Milligrams", null,          "Micronutrients", displayOrder += 10);
 
             this._ctx.SaveChanges();
         }
