@@ -32,11 +32,11 @@ namespace SnackAndTrack.WebApp.Controllers {
         }
 
         [HttpGet("units/{unitType}")]
-        public async Task<ActionResult<IEnumerable<UnitModel>>> GetUnitsForType([FromRoute] String unitType) {
-            return await this._context.Units.Where(u => u.Type == unitType).Distinct().Select(u => new UnitModel { 
+        public async Task<ActionResult<IEnumerable<UnitModel>>> GetUnitsForType([FromRoute] String type) {
+            return await this._context.Units.Where(u => u.Type == type).Distinct().Select(u => new UnitModel { 
                 Id = u.Id
-              , UnitName = u.Name
-              , UnitType = u.Type
+              , Name = u.Name
+              , Type = u.Type
             }).ToListAsync();
         }
 

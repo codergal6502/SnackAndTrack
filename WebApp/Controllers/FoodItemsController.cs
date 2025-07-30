@@ -107,6 +107,8 @@ namespace SnackAndTrack.WebApp.Controllers {
 
             await PopulateFoodItem(model, foodItem);
 
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(GetFoodItem), new { id = foodItem.Id }, ConvertEntityToModel(foodItem));
         }
 
@@ -141,8 +143,6 @@ namespace SnackAndTrack.WebApp.Controllers {
 
             await PopulateServingSizes(model, foodItem);
             await PopulateFoodItemNutrients(model, foodItem);
-
-            await this._context.SaveChangesAsync();
         }
 
         private async Task PopulateServingSizes(FoodItemModel model, FoodItem foodItem) {
@@ -160,9 +160,9 @@ namespace SnackAndTrack.WebApp.Controllers {
                 }
 
                 if (null == existingServingSize) {
-
                     ServingSize servingSize = new ServingSize { Id = Guid.NewGuid(), FoodItem = foodItem, Quantity = servingSizeModel.Quantity, Unit = unit, DisplayOrder =  i.Index };
                     foodItem.ServingSizes.Add(servingSize);
+                    _context.Add(servingSize);
                 }
                 else {
                     existingServingSize.Unit = unit;

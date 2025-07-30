@@ -3,14 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import Select from 'react-select';
 
-// TODO: any kind of validation at all
-// TODO: filter out empty rows
-// TODO: handle delete keys in empty fields
-
 const FoodItemForm = () => {
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
 
-    const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState({});
     const [servingSizeUnitOptions, setServingSizeUnitOptions] = useState([]); // Empty 2D-array
     const [nutrientOptions, setNutrientOptions] = useState([]);
@@ -42,7 +37,7 @@ const FoodItemForm = () => {
     const validateFoodItem = (newFoodItem) => {
         let hasErrors = false;
 
-        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation/
+        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
         hasErrors = validateFoodItemName(newFoodItem) || hasErrors;
         hasErrors = validateFoodItemServingSizes(newFoodItem) || hasErrors;
         hasErrors = validateFoodItemNutrients(newFoodItem) || hasErrors;
@@ -81,14 +76,6 @@ const FoodItemForm = () => {
 
     const validateServingSize = (servingSize) => {
         let hasErrors = false;
-
-        if (! (servingSize.unitType || "").trim()) {
-            servingSize["-error-unitType"] = "Serving size unit type is required.";
-            hasErrors = true;
-        }
-        else {
-            delete servingSize["-error-unitType"];
-        }
 
         if (! (servingSize.unitId || "").trim()) {
             servingSize["-error-unitId"] = "Serving size unitis required.";
@@ -195,9 +182,19 @@ const FoodItemForm = () => {
             const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
             setUnitDictionary(newUnitDct);
 
-            setFoodQuantityUnitTypes(units.filter(unit => true === unit.canBeFoodQuantity).map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })))
+            const servingSizeUnitDictionary = Object.groupBy(units.filter(u => u.canBeFoodQuantity), u => u.type);
+            const unitTypes = Object.keys(servingSizeUnitDictionary).toSorted((t1, t2) => t1.localeCompare(t2))
+            const groupedOptions =
+                unitTypes
+                    .map(unitType => ({
+                        label: unitType
+                      , options: servingSizeUnitDictionary[unitType].toSorted((u1, u2) => u1.name.localeCompare(u2.name)).map(unit => ({
+                            value: unit.id
+                          , label: unit.name
+                        }))
+                    }));
 
-            return units;
+            setServingSizeUnitOptions(groupedOptions);
         }
         catch (error) {
             console.error(`Request to ${url} failed.`, error)
@@ -212,9 +209,6 @@ const FoodItemForm = () => {
         data.nutrients.forEach(element => {
             
         });
-
-        const initialServingSizeUnitOptions = data.servingSizes.map((s) => Object.values(unitDictionary).filter(u => u.type == s.unitType).map(u => ({ label: u.name, value: u.id })));
-        setServingSizeUnitOptions(initialServingSizeUnitOptions);
 
         const initialNutrientUnitOptions = data.nutrients.map((n) => Object.values(unitDictionary).filter(u => u.type == unitDictionary[n.unitId].type).map(u => ({ label: u.name, value: u.id })));
         setNutrientUnitOptions(initialNutrientUnitOptions);
@@ -233,27 +227,9 @@ const FoodItemForm = () => {
         servingSizes[index] = { ...servingSizes[index], [name]: value };
         const newFoodItem = { ...foodItem, servingSizes: servingSizes};
 
-        // validateServingSize(servingSizes[index]);
         validateFoodItem(newFoodItem);
 
         setFoodItem(newFoodItem)
-    };
-
-    const handleServingSizeUnitTypeSelectionChange = (index, selectedOption) => {
-        const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedOption.value);
-
-        const newUnitOptions = [...servingSizeUnitOptions];
-        newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
-        setServingSizeUnitOptions(newUnitOptions);
-
-        const newServingSizes = [ ...foodItem.servingSizes];
-        newServingSizes[index].unitType = selectedOption?.value;
-        const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
-
-        // validateServingSize(newServingSizes[index]);
-        validateFoodItem(newFoodItem);
-
-        setFoodItem(newFoodItem);
     };
 
     const handleServingSizeUnitSeelctionChange = (index, selectedOption) => {
@@ -261,7 +237,6 @@ const FoodItemForm = () => {
         newServingSizes[index].unitId = selectedOption?.value;
         const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
 
-        // validateServingSize(newServingSizes[index]);
         validateFoodItem(newFoodItem);
 
         setFoodItem(newFoodItem);
@@ -282,11 +257,6 @@ const FoodItemForm = () => {
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 1);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index], foodItem.servingSizes[index - 1], ...servingSizesAfter];
             setFoodItem({ ...foodItem, servingSizes: servingSizes});
-
-            const servingSizeUnitOptionsBefore = servingSizeUnitOptions.slice(0, index - 1);
-            const servingSizeUnitOptionsAfter = servingSizeUnitOptions.slice(index + 1);
-            const newServingSizeUnitOptions = [...servingSizeUnitOptionsBefore, servingSizeUnitOptions[index], servingSizeUnitOptions[index-1], ...servingSizeUnitOptionsAfter];
-            setServingSizeUnitOptions(newServingSizeUnitOptions);
         }
     }
 
@@ -296,11 +266,6 @@ const FoodItemForm = () => {
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 2);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index + 1], foodItem.servingSizes[index], ...servingSizesAfter];
             setFoodItem({ ...foodItem, servingSizes: servingSizes});
-
-            const servingSizeUnitOptionsBefore = servingSizeUnitOptions.slice(0, index);
-            const servingSizeUnitOptionsAfter = servingSizeUnitOptions.slice(index + 2);
-            const newServingSizeUnitOptions = [...servingSizeUnitOptionsBefore, servingSizeUnitOptions[index + 1], servingSizeUnitOptions[index], ...servingSizeUnitOptionsAfter];
-            setServingSizeUnitOptions(newServingSizeUnitOptions);
         }
     }
 
@@ -467,7 +432,6 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
-                        <th style={{width:"33%"}} scope="col">Unit Type</th>
                         <th style={{width:"33%"}} scope="col">Unit</th>
                         <th style={{width:"33%"}} scope="col">Quantity</th>
                         {!(foodItem.generatedFromId) && (<th style={{width: "1%", whiteSpace: "nowrap"}} scope="col">Actions</th>)}
@@ -479,40 +443,22 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
                                     {(() => {
-                                        const currentId = `servingSize-unit-type-${index}`;
-                                        return (
-                                            <div className='col'>
-                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
-                                                <Select
-                                                    id={currentId}
-                                                    options={(() => {
-                                                        const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(s => s.unitType);
-                                                        return foodQuantityUnitTypes.filter(opt => { return otherSelections.indexOf(opt.value) < 0; } );
-                                                    })()}
-                                                    onChange={(selectedOption) => handleServingSizeUnitTypeSelectionChange(index, selectedOption)}
-                                                    value={foodQuantityUnitTypes.find(option => option.value == servingSize.unitType) || null}
-                                                    classNamePrefix="react-select"
-                                                    className={`${foodItem["-show-errors"] && servingSize["-error-unitType"] ? 'is-invalid' : ''}`}
-                                                    placeholder="unit type"
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-unitType"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
-                                </div>
-                            </td>
-                            <td style={{width:"33%"}}>
-                                <div className="form-group">
-                                    {(() => {
                                         const currentId = `servingSize-unit-${index}`;
                                         return (
                                             <div className='col'>
                                                 <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
                                                 <Select
                                                     id={currentId}
-                                                    options={servingSizeUnitOptions[index]}
+                                                    options={(() => {
+                                                        const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(u => u.unitId).filter(typeId => typeId);
+                                                        const otherSelectedTypes = otherSelections.map(unitId => unitDictionary[unitId].type);
+
+                                                        let ret = servingSizeUnitOptions.filter(grp => otherSelectedTypes.indexOf(grp.label) < 0);
+                                                        return ret;
+                                                    })()}
+                                                    isClearable
                                                     onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
-                                                    value={servingSizeUnitOptions[index]?.find(option => option.value === servingSize.unitId) || null}
+                                                    value={servingSizeUnitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
                                                     classNamePrefix="react-select"
                                                     className={`${foodItem["-show-errors"] && servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
                                                     placeholder="unit"
@@ -532,8 +478,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                 <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
                                                 <input
                                                     id={currentId}
-                                                    type="
-                                                    "
+                                                    type="number"
                                                     name="quantity"
                                                     className={`form-control ${(foodItem["-show-errors"] && servingSize["-error-quantity"]) ? "is-invalid" : ""}`}
                                                     value={servingSize.quantity}
@@ -564,7 +509,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     ))}
                 </tbody>
             </table>
-            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= foodQuantityUnitTypes.length} onClick={addServingSize}>Add Serving Size</button>)}
+            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= servingSizeUnitOptions.length} onClick={addServingSize}>Add Serving Size</button>)}
 
 
             <h5>Nutrition Information per Serving</h5>
@@ -600,7 +545,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                         });
 
                                                         return ret;
-                                                    })()}    
+                                                    })()}
                                                     onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                                                     isClearable
                                                     value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}

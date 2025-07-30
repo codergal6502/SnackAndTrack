@@ -15,14 +15,14 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureUnit("Energy", "Calories",   "cal,kcal", false);
             EnsureUnit("Energy", "Kilojoules", "Kj",       false);
 
-            EnsureUnit("Volume", "Liters",      "L",                  true);
-            EnsureUnit("Volume", "Milliliters", "mL,ml",              true);
-            EnsureUnit("Volume", "Gallons",     "gal",                true);
-            EnsureUnit("Volume", "Quarts",      "qt",                 true);
-            EnsureUnit("Volume", "Cups",        "cup",                true);
-            EnsureUnit("Volume", "Tablespoons", "Tbsp,T",             true);
-            EnsureUnit("Volume", "Teaspoons",   "tsp,t",              true);
-            EnsureUnit("Volume", "Ounces",      "floz,fl oz,fl. oz.", true);
+            EnsureUnit("Volume", "Liters",       "L",                  true);
+            EnsureUnit("Volume", "Milliliters",  "mL,ml",              true);
+            EnsureUnit("Volume", "Gallons",      "gal",                true);
+            EnsureUnit("Volume", "Quarts",       "qt",                 true);
+            EnsureUnit("Volume", "Cups",         "cup",                true);
+            EnsureUnit("Volume", "Tablespoons",  "Tbsp,T",             true);
+            EnsureUnit("Volume", "Teaspoons",    "tsp,t",              true);
+            EnsureUnit("Volume", "Fluid Ounces", "floz,fl oz,fl. oz.", true);
             
             EnsureUnit("Mass", "Grams",      "g"     , true);
             EnsureUnit("Mass", "Milligrams", "mg"    , true);
@@ -38,34 +38,34 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
 
             EnsureUnitConversion("Energy", "Calories", "Kilojoules", (Single) 4.184);
 
-            EnsureUnitConversion("Volume", "Liters",      "Milliliters", (Single) 1000);
-            EnsureUnitConversion("Volume", "Liters",      "Gallons",     (Single) 0.2642);
-            EnsureUnitConversion("Volume", "Liters",      "Quarts",      (Single) 1.0567);
-            EnsureUnitConversion("Volume", "Liters",      "Cups",        (Single) 4.2268); // This is quite close to the conversion for 1C = 240mL: 236.585596669!
-            EnsureUnitConversion("Volume", "Liters",      "Tablespoons", (Single) 67.628);
-            EnsureUnitConversion("Volume", "Liters",      "Teaspoons",   (Single) 202.8841);
-            EnsureUnitConversion("Volume", "Liters",      "Ounces",      (Single) 33.814);
-            EnsureUnitConversion("Volume", "Milliliters", "Gallons",     (Single) 0.2642   / 1000); // this looks a little
-            EnsureUnitConversion("Volume", "Milliliters", "Quarts",      (Single) 1.0567   / 1000); // weird but is the 
-            EnsureUnitConversion("Volume", "Milliliters", "Cups",        (Single) 4.2268   / 1000); // least error-prone
-            EnsureUnitConversion("Volume", "Milliliters", "Tablespoons", (Single) 67.628   / 1000); // way to add this in
-            EnsureUnitConversion("Volume", "Milliliters", "Teaspoons",   (Single) 202.8841 / 1000); // quickly!
-            EnsureUnitConversion("Volume", "Milliliters", "Ounces",      (Single) 33.814   / 1000);
-            EnsureUnitConversion("Volume", "Gallons",     "Quarts",      (Single) 4);
-            EnsureUnitConversion("Volume", "Gallons",     "Cups",        (Single) 16);
-            EnsureUnitConversion("Volume", "Gallons",     "Tablespoons", (Single) 256);
-            EnsureUnitConversion("Volume", "Gallons",     "Teaspoons",   (Single) 768);
-            EnsureUnitConversion("Volume", "Gallons",     "Ounces",      (Single) 128);
-            EnsureUnitConversion("Volume", "Quarts",      "Cups",        (Single) 4);
-            EnsureUnitConversion("Volume", "Quarts",      "Tablespoons", (Single) 64);
-            EnsureUnitConversion("Volume", "Quarts",      "Teaspoons",   (Single) 192);
-            EnsureUnitConversion("Volume", "Quarts",      "Ounces",      (Single) 32);
-            EnsureUnitConversion("Volume", "Cups",        "Tablespoons", (Single) 16);
-            EnsureUnitConversion("Volume", "Cups",        "Teaspoons",   (Single) 48);
-            EnsureUnitConversion("Volume", "Cups",        "Ounces",      (Single) 8);
-            EnsureUnitConversion("Volume", "Ounces",      "Tablespoons", (Single) 2);
-            EnsureUnitConversion("Volume", "Ounces",      "Teaspoons",   (Single) 6);
-            EnsureUnitConversion("Volume", "Tablespoons", "Teaspoons",   (Single) 3);
+            EnsureUnitConversion("Volume", "Liters",       "Milliliters",  (Single) 1000);
+            EnsureUnitConversion("Volume", "Liters",       "Gallons",      (Single) 0.2642);
+            EnsureUnitConversion("Volume", "Liters",       "Quarts",       (Single) 1.0567);
+            EnsureUnitConversion("Volume", "Liters",       "Cups",         (Single) 4.2268); // This is quite close to the conversion for 1C = 240mL: 236.585596669!
+            EnsureUnitConversion("Volume", "Liters",       "Tablespoons",  (Single) 67.628);
+            EnsureUnitConversion("Volume", "Liters",       "Teaspoons",    (Single) 202.8841);
+            EnsureUnitConversion("Volume", "Liters",       "Fluid Ounces", (Single) 33.814);
+            EnsureUnitConversion("Volume", "Milliliters",  "Gallons",      (Single) 0.2642   / 1000); // this looks a little
+            EnsureUnitConversion("Volume", "Milliliters",  "Quarts",       (Single) 1.0567   / 1000); // weird but is the 
+            EnsureUnitConversion("Volume", "Milliliters",  "Cups",         (Single) 4.2268   / 1000); // least error-prone
+            EnsureUnitConversion("Volume", "Milliliters",  "Tablespoons",  (Single) 67.628   / 1000); // way to add this in
+            EnsureUnitConversion("Volume", "Milliliters",  "Teaspoons",    (Single) 202.8841 / 1000); // quickly!
+            EnsureUnitConversion("Volume", "Milliliters",  "Fluid Ounces", (Single) 33.814   / 1000);
+            EnsureUnitConversion("Volume", "Gallons",      "Quarts",       (Single) 4);
+            EnsureUnitConversion("Volume", "Gallons",      "Cups",         (Single) 16);
+            EnsureUnitConversion("Volume", "Gallons",      "Tablespoons",  (Single) 256);
+            EnsureUnitConversion("Volume", "Gallons",      "Teaspoons",    (Single) 768);
+            EnsureUnitConversion("Volume", "Gallons",      "Fluid Ounces", (Single) 128);
+            EnsureUnitConversion("Volume", "Quarts",       "Cups",         (Single) 4);
+            EnsureUnitConversion("Volume", "Quarts",       "Tablespoons",  (Single) 64);
+            EnsureUnitConversion("Volume", "Quarts",       "Teaspoons",    (Single) 192);
+            EnsureUnitConversion("Volume", "Quarts",       "Fluid Ounces", (Single) 32);
+            EnsureUnitConversion("Volume", "Cups",         "Tablespoons",  (Single) 16);
+            EnsureUnitConversion("Volume", "Cups",         "Teaspoons",    (Single) 48);
+            EnsureUnitConversion("Volume", "Cups",         "Fluid Ounces", (Single) 8);
+            EnsureUnitConversion("Volume", "Fluid Ounces", "Tablespoons",  (Single) 2);
+            EnsureUnitConversion("Volume", "Fluid Ounces", "Teaspoons",    (Single) 6);
+            EnsureUnitConversion("Volume", "Tablespoons",  "Teaspoons",    (Single) 3);
 
             EnsureUnitConversion("Mass", "Grams",      "Milligrams", (Single) 1000);
             EnsureUnitConversion("Mass", "Grams",      "Micrograms", (Single) 1000000);
