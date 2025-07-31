@@ -8,6 +8,8 @@ const context = [
   "/api/fooditems",
   "/api/recipes",
   "/api/lookup",
+  "/graphql/browser",
+  "/graphql/query"
 ];
 
 const onError = (err, req, resp, target) => {

@@ -1,5 +1,8 @@
+using GraphQL;
+using GraphQL.Server.Ui.GraphiQL;
 using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
+using SnackAndTrack.WebApp.GraphQl;
 
 namespace SnackAndTrack.WebApp {
 
@@ -19,8 +22,13 @@ namespace SnackAndTrack.WebApp {
 
             builder.Services.AddHostedService<SnackAndTrackDbContextInitalizationService>();
 
-            var app = builder.Build();
+            builder.Services.AddScoped<AppSchema>();
+            builder.Services.AddTransient<AppQuery>();
 
+            builder.Services.AddGraphQL(x => { x.AddSystemTextJson(); });
+
+            var app = builder.Build();
+            
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
@@ -32,14 +40,13 @@ namespace SnackAndTrack.WebApp {
             app.UseStaticFiles();
             app.UseRouting();
 
+            app.UseGraphQL<AppSchema>("/graphql/query");
+            var graphiQLOptions = new GraphiQLOptions { GraphQLEndPoint = "/graphql/query" };
+            app.UseGraphQLGraphiQL(options: graphiQLOptions, path: "/graphql/browser");
+
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller}/{action=Index}/{id?}");
-
-            // if (app.Environment.IsDevelopment()) {
-                app.MapGet("/debug/routes", (IEnumerable<EndpointDataSource> endpointSources) =>
-                    string.Join("\n", endpointSources.SelectMany(source => source.Endpoints)));
-            // }
 
             app.MapFallbackToFile("index.html");
 
