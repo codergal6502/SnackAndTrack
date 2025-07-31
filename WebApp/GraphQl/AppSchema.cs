@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Linq.Expressions;
 using GraphQL;
 using GraphQL.Types;
 using Microsoft.EntityFrameworkCore;
@@ -73,8 +71,6 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             break;
                     }
 
-                    query = query.OrderByDescending(f => f.Name);
-
                     var totalCount = query.Count();
                     var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
@@ -101,7 +97,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
 
     public class FoodItemsResponseType : ObjectGraphType<FoodItemsResponse> {
         public FoodItemsResponseType() {
-            Field(x => x.TotalCount).Description("Total number of food items matching the query.");
+            Field(x => x.TotalCount);
+            Field(x => x.TotalPages);
             Field<ListGraphType<FoodItemType>>(nameof(FoodItemsResponse.Items)).Description("List of food items.");
         }
     }
