@@ -117,9 +117,6 @@ const FoodItemList = () => {
                     <button type="button" className='btn btn-info form-control' onClick={fetchFoodItems}>refresh</button>
                 </div>
             </div>
-
-
-
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
