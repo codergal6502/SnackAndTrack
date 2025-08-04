@@ -113,13 +113,14 @@ const FoodItemList = () => {
                     />
                 </div>
                 <div class="me-3">
-                    <button type="button" onClick={fetchFoodItems}>refresh</button>
+                    <label className="form-label">&nbsp;</label>
+                    <button type="button" className='btn btn-info form-control' onClick={fetchFoodItems}>refresh</button>
                 </div>
             </div>
 
 
 
-            <table className="table">
+            <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -133,7 +134,10 @@ const FoodItemList = () => {
                             <td>{item.name}</td>
                             <td>{item.brand}</td>
                             <td>
-                                <Link to={`/fooditemform/${item.id}`} className="btn btn-warning">Edit</Link>
+                                <div class="btn-group" role="group" aria-label="Basic example">
+                                    <Link to={`/fooditemview/${item.id}`} className="btn btn-primary">View</Link>
+                                    <Link to={`/fooditemform/${item.id}`} className="btn btn-secondary">Edit</Link>
+                                </div>
                             </td>
                         </tr>
                     ))}
