@@ -65,6 +65,7 @@ const FoodItemForm = () => {
 
     const validateFoodItemServingSizes = (foodItem) => {
         let hasErrors = false;
+        // TODO: why did I do this like this and not pass it directly into the inner function?
         const newServingSizes = [... foodItem.servingSizes];
 
         for (const servingSize of newServingSizes) {
