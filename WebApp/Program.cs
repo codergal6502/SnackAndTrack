@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
 using GraphQL;
 using GraphQL.Server.Ui.GraphiQL;
 using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
 using SnackAndTrack.WebApp.GraphQl;
+using SnackAndTrack.WebApp.Utilities;
 
 namespace SnackAndTrack.WebApp {
 
@@ -14,7 +16,11 @@ namespace SnackAndTrack.WebApp {
 
             // Add services to the container.
 
-            builder.Services.AddControllersWithViews();
+            builder.Services.AddControllersWithViews().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new EmptyStringDateConverter());
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter<WebApp.Models.NutritionGoalSetModel.DayMode.DayModeEnum>());
+            });
 
             builder.Services.AddDbContext<SnackAndTrackDbContext>(options => 
                 options.UseNpgsql(builder.Configuration.GetConnectionString("PSQLConnection"))

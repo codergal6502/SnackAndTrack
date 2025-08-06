@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { json, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Select from 'react-select';
-import Accordion from 'react-bootstrap/Accordion';
 
 const NutritionGoalSetForm = () => {
     const [nutritionGoalSet, setNutritionGoalSet] = useState({ name: "", startDate: "", endDate: "", period: null, dayModes: [], nutrients: [] })
     const [nutrientOptions, setNutrientOptions] = useState([]);
     const [nutrientDictionary, setNutrientDictionary] = useState({});
 
+    const { id } = useParams();
+    const navigate = useNavigate();
+    
     useEffect(() => {
         fetchNutrients();
     }, []);
@@ -21,14 +24,12 @@ const NutritionGoalSetForm = () => {
     }
 
     const validateNutritionGoalSet = (newNutritionGoalSet) => {
-        console.log(JSON.stringify(newNutritionGoalSet));
         let hasErrors = false;
 
         // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
         hasErrors = validateName(newNutritionGoalSet) || hasErrors;
         hasErrors = validateSchedule(newNutritionGoalSet) || hasErrors;
         hasErrors = validateNutrients(newNutritionGoalSet) || hasErrors;
-        // hasErrors = validateFoodItemNutrients(newFoodItem) || hasErrors;
 
         newNutritionGoalSet["-has-errors"] = hasErrors;
 
@@ -74,27 +75,24 @@ const NutritionGoalSetForm = () => {
             if (isNaN(parsedStart)) {
                 // Probably impossible
                 newNutritionGoalSet["-error-start-date"] = "Start date must be a valid date.";
+                hasErrors = true;
             }
-            
-            hasErrors = true;
         }
         else if (startIsNull) {
             // implied end isn't null.
             if (isNaN(parsedEnd)) {
                 // Probably impossible
                 newNutritionGoalSet["-error-end-date"] = "End date must be a valid date.";
+                hasErrors = true;
             }
-
-            hasErrors = true;
         }
         else {
             // Implied neither is null.
             if (parsedStart > parsedEnd) {
                 newNutritionGoalSet["-error-start-date"] = "Start date must be before end date.";
                 newNutritionGoalSet["-error-end-date"] = "End date must be after start date.";
+                hasErrors = true;
             }
-
-            hasErrors = true;
         }
 
         const periodIsNull = null === newNutritionGoalSet.period;
@@ -121,7 +119,7 @@ const NutritionGoalSetForm = () => {
     const validateNutrients = (newNutritionGoalSet) => {
         let hasErrors = false
 
-        for (const nutrient of nutritionGoalSet.nutrients) {
+        for (let nutrient of newNutritionGoalSet.nutrients) {
             if (! nutrient?.nutrientId) {
                 nutrient["-error-nutrientId"] = "You must specify a nutrient";
                 hasErrors = true;
@@ -129,15 +127,99 @@ const NutritionGoalSetForm = () => {
             else {
                 delete nutrient["-error-nutrientId"];
             }
+
+            for (let target of Object.values(nutrient.targets)) {
+                hasErrors = validateTarget(target) || hasErrors;
+            }
         }
 
         return hasErrors;
+    }
+
+    const validateTarget = (target) => {
+        let hasErrors = false;
+
+        const minIsNull = ! target.minimum?.trim();
+        const maxIsNull = ! target.maximum?.trim();
+        const parsedMin = parseInt(target.minimum);
+        const parsedMax = parseInt(target.maximum);
+
+        delete target["-error-minimum"];
+        delete target["-error-maximum"];
+
+        // Same pattern as with the dates.
+        if (minIsNull && maxIsNull) {
+            target["-error-minimum"] = "You must specify minimum, a maximum, or both.";
+            target["-error-maximum"] = "You must specify minimum, a maximum, or both.";
+
+            hasErrors = true;
+        }
+        else if (maxIsNull) {
+            // implied min isn't null.
+            if (isNaN(parsedMin)) {
+                // Probably impossible
+                target["-error-minimum"] = "Minimum must be valid number.";
+                hasErrors = true;
+            }
+            else if (0 > parsedMin) {
+                target["-error-minimum"] = "Minimum must be a postive number.";    
+                hasErrors = true;
+            }
+        }
+        else if (minIsNull) {
+            // implied max isn't null.
+            if (isNaN(parsedMax)) {
+                // Probably impossible
+                target["-error-maximum"] = "Maximum must be a valid number.";
+                hasErrors = true;
+            }
+            else if (0 > parsedMax) {
+                target["-error-maximum"] = "Maximum must be a postive number.";    
+                hasErrors = true;
+            }
+        }
+        else {
+            // Implied neither is null.
+            if (parsedMin > parsedMax) {
+                target["-error-minimum"] = "Minimum must be less than maximum.";
+                target["-error-maximum"] = "Maximum must be greater than minimum.";
+                hasErrors = true;
+            }
+            else {
+                if (0 > parsedMin) {
+                    target["-error-minimum"] = "Minimum must be a postive number.";    
+                    hasErrors = true;
+                }
+                if (0 > parsedMax) {
+                    target["-error-maximum"] = "Maximum must be a postive number.";    
+                    hasErrors = true;
+                }
+            }
+        }
     }
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         validateNutritionGoalSet({ ...nutritionGoalSet, [name]: value });
     };
+
+    const rebuildNutrientTargets = (newNutrients, newDayModes) => {
+        const targetTemplates = buildTargetTemplatesFromDayModes(newDayModes);
+
+        for (const newNutrient of newNutrients) {
+            const oldTargets = newNutrient?.targets;
+            newNutrient.targets = { };
+            for (const startDay of Object.keys(targetTemplates)) {
+                const targetTemplate = targetTemplates[startDay];
+                const newTarget = oldTargets?.[startDay] ?? { minimum: "", maximum: ""};
+                newTarget.start = targetTemplate.start; // should always match startDay, but this one's already an int
+                newTarget.end = targetTemplate.end;
+                newNutrient.targets[startDay] = newTarget;
+            }
+        }
+
+        return newNutrients;
+    }
 
     const handlePeriodChange = async (selectedElement) => {
         const newPeriod = parseInt(selectedElement.value);
@@ -146,21 +228,7 @@ const NutritionGoalSetForm = () => {
 
         for (let i = 0; i < newPeriod; i++) { newDayModes[i] = nutritionGoalSet.dayModes[i] || { type: "DifferentGoal" }; }
 
-        // todo: make a function
-        const targetTemplates = buildTargetTemplatesFromDayModes(newDayModes);
-
-        const newNutrients = [...nutritionGoalSet.nutrients]
-
-        for (const newNutrient of newNutrients) {
-            for (const startDay of Object.keys(targetTemplates)) {
-                const targetTemplate = targetTemplates[startDay];
-                const newTarget = newNutrient?.targets?.[startDay] ?? { minimum: "", maximum: ""};
-                newTarget.start = targetTemplate.start; // should always match startDay, but this one's already an int
-                newTarget.end = targetTemplate.end;
-                newNutrient.targets[startDay] = newTarget;
-            }
-        }
-        // make a function
+        const newNutrients = rebuildNutrientTargets([...nutritionGoalSet.nutrients], newDayModes);
 
         validateNutritionGoalSet({... nutritionGoalSet, period: newPeriod, dayModes: newDayModes, nutrients: newNutrients});
     };
@@ -195,9 +263,13 @@ const NutritionGoalSetForm = () => {
     }
 
     const handleNutrientSelectionChange = async(index, selectedElement) => {
-        const newNutrients = [... nutritionGoalSet.nutrients ];
+        let newNutrients = [... nutritionGoalSet.nutrients ];
         newNutrients[index] = { nutrientId: selectedElement.value, targets: { } };
+
+        newNutrients = rebuildNutrientTargets(newNutrients, nutritionGoalSet.dayModes);
+
         const newNutritionGoalSet = {... nutritionGoalSet, nutrients: newNutrients };
+        
         validateAndSetNutritionGoalSet(newNutritionGoalSet);
     }
 
@@ -206,7 +278,9 @@ const NutritionGoalSetForm = () => {
         newDayModes[0] = { type: "DifferentGoal" };
         newDayModes[index + 1] = { type: selectedElement.value };
 
-        const newNutritionGoalSet = {...nutritionGoalSet, dayModes: newDayModes};
+        const newNutrients = rebuildNutrientTargets([... nutritionGoalSet.nutrients], newDayModes);
+
+        const newNutritionGoalSet = {...nutritionGoalSet, dayModes: newDayModes, nutrients: newNutrients};
 
         validateAndSetNutritionGoalSet(newNutritionGoalSet);
     }
@@ -238,7 +312,7 @@ const NutritionGoalSetForm = () => {
 
         const newNutritionGoalSet = {... nutritionGoalSet, nutrients: newNutrients};
 
-        setNutritionGoalSet(newNutritionGoalSet);
+        validateAndSetNutritionGoalSet(newNutritionGoalSet);
     }
 
     const handleTargetMaximumChange = async (nutrientIndex, startDay, value) => {
@@ -250,7 +324,7 @@ const NutritionGoalSetForm = () => {
 
         const newNutritionGoalSet = {... nutritionGoalSet, nutrients: newNutrients};
 
-        setNutritionGoalSet(newNutritionGoalSet);
+        validateAndSetNutritionGoalSet(newNutritionGoalSet);
     }
 
     const fetchNutrients = async() => {
@@ -307,30 +381,30 @@ const NutritionGoalSetForm = () => {
 
         if (!hasErrors) {
             console.log("do save", nutritionGoalSet);
-            // if (id) {
-            //     await fetch(`/api/fooditems/${id}`, {
-            //         method: 'PUT',
-            //         headers: {
-            //             'Content-Type': 'application/json',
-            //         },
-            //         body: JSON.stringify(foodItem),
-            //     });
-            // } else {
-            //     await fetch('/api/fooditems', {
-            //         method: 'POST',
-            //         headers: {
-            //             'Content-Type': 'application/json',
-            //         },
-            //         body: JSON.stringify(foodItem),
-            //     });
-            // }
-            // navigate('/FoodItemList');
+            if (id) {
+                await fetch(`/api/nutritiongoalsets/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(nutritionGoalSet),
+                });
+            } else {
+                await fetch('/api/nutritiongoalsets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(nutritionGoalSet),
+                });
+            }
+            navigate('/nutriongoalsetlist');
         }
     };
 
 
     return (
-        <form autoComplete='false' onSubmit={handleSubmit}>
+        <form autoComplete="Off" onSubmit={handleSubmit}>
             <div>
                 <h1>Nutrition Goal Set</h1>
                 <div className="mb-3">
@@ -428,9 +502,7 @@ const NutritionGoalSetForm = () => {
                                     onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
                                     value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
                                     classNamePrefix="react-select"
-                                    // className={`${nutritionGoalSet["-show-errors"] && nutrient["-error-nutrientId"] ? 'is-invalid' : ''}`}
                                 />
-                                {/* {(nutritionGoalSet["-show-errors"] && (<div className='error-message'>{nutrient["-error-nutrientId"]}</div>))} */}
                             </td>
                             <td style={{width: "1%", whiteSpace: "nowrap"}}>
                                 <div className="form-group">
@@ -461,11 +533,27 @@ const NutritionGoalSetForm = () => {
                             <div className="d-flex mb-3" key={`${nutIdx}-${startDay}`}>
                                 <div className="me-3">
                                     <label htmlFor="page" className="form-label">{target.start == target.end ? `Day ${target.start + 1}` : `Days ${target.start+1}-${target.end+1}`} Minimum:</label>
-                                    <input min={0} value={target.minimum} onChange={(e) => handleTargetMinimumChange(nutIdx, startDay, e.target.value)} type='number' className='form-control' placeholder={`${nutrientDictionary[nutrient?.nutrientId]?.name} (${((unit) => unit?.abbreviationCsv?.split(',')?.[0] || unit?.name )(nutrientDictionary[nutrient.nutrientId]?.defaultUnit)})`}/>
+                                    <input
+                                        min={0}
+                                        value={target.minimum}
+                                        onChange={(e) => handleTargetMinimumChange(nutIdx, startDay, e.target.value)}
+                                        type='number'
+                                        className={`form-control ${(nutritionGoalSet["-show-errors"] && target["-error-minimum"]) ? "is-invalid" : ""}`}
+                                        placeholder={`${nutrientDictionary[nutrient?.nutrientId]?.name} (${((unit) => unit?.abbreviationCsv?.split(',')?.[0] || unit?.name )(nutrientDictionary[nutrient.nutrientId]?.defaultUnit)})`}
+                                    />
+                                    {(nutritionGoalSet["-show-errors"] && (<div className='error-message'>{target["-error-minimum"]}</div>))}
                                 </div>
                                 <div className="me-3">
                                     <label htmlFor="page" className="form-label">{target.start == target.end ? `Day ${target.start + 1}` : `Days ${target.start+1}-${target.end+1}`} Maximum:</label>
-                                    <input min={0} value={target.maximum} onChange={(e) => handleTargetMaximumChange(nutIdx, startDay, e.target.value)} type='number' className='form-control' placeholder={`${nutrientDictionary[nutrient?.nutrientId]?.name} (${((unit) => unit?.abbreviationCsv?.split(',')?.[0] || unit?.name )(nutrientDictionary[nutrient.nutrientId]?.defaultUnit)})`}/>
+                                    <input
+                                        min={0}
+                                        value={target.maximum}
+                                        onChange={(e) => handleTargetMaximumChange(nutIdx, startDay, e.target.value)}
+                                        type='number'
+                                        className={`form-control ${(nutritionGoalSet["-show-errors"] && target["-error-maximum"]) ? "is-invalid" : ""}`}
+                                        placeholder={`${nutrientDictionary[nutrient?.nutrientId]?.name} (${((unit) => unit?.abbreviationCsv?.split(',')?.[0] || unit?.name )(nutrientDictionary[nutrient.nutrientId]?.defaultUnit)})`}
+                                    />
+                                    {(nutritionGoalSet["-show-errors"] && (<div className='error-message'>{target["-error-maximum"]}</div>))}
                                 </div>
                             </div>
                         )}
