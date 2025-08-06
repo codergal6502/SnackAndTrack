@@ -45,7 +45,7 @@ const AppRoutes = [
     element: <NutritionGoalSetList />
   },
   {
-    path: '/nutrietiongoalsetform',
+    path: '/nutritiongoalsetform',
     element: <NutritionGoalSetForm />
   },
 ];

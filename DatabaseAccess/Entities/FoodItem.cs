@@ -3,12 +3,14 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
 
-namespace SnackAndTrack.DatabaseAccess.Entities {
+namespace SnackAndTrack.DatabaseAccess.Entities
+{
     [DebuggerDisplay("{Name}")]
-    public class FoodItem {
+    public class FoodItem
+    {
         [Key]
         public virtual required Guid Id { get; set; }
-        public virtual required String Name  { get; set; }
+        public virtual required String Name { get; set; }
         public virtual required String Brand { get; set; }
         [ForeignKey(nameof(Recipe.GeneratedFoodItem))]
         public virtual Recipe? GeneratedFrom { get; set; }

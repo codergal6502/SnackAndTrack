@@ -64,29 +64,22 @@ const NutritionGoalSetForm = () => {
         delete newNutritionGoalSet["-error-start-date"];
         delete newNutritionGoalSet["-error-end-date"];
 
-        if (startIsNull && endIsNull) {
-            newNutritionGoalSet["-error-start-date"] = "You must specify a start date, an end date, or both.";
-            newNutritionGoalSet["-error-end-date"] = "You must specify a start date, an end date, or both.";
-
+        if (!endIsNull && isNaN(parsedEnd)) {
+            // Probably impossible
+            newNutritionGoalSet["-error-end-date"] = "Start end must be a valid date.";
             hasErrors = true;
         }
-        else if (endIsNull) {
-            // implied start isn't null.
-            if (isNaN(parsedStart)) {
-                // Probably impossible
-                newNutritionGoalSet["-error-start-date"] = "Start date must be a valid date.";
-                hasErrors = true;
-            }
+
+        if (startIsNull) {
+            newNutritionGoalSet["-error-start-date"] = "You must always specify a start date.";
+            hasErrors = true;
         }
-        else if (startIsNull) {
-            // implied end isn't null.
-            if (isNaN(parsedEnd)) {
-                // Probably impossible
-                newNutritionGoalSet["-error-end-date"] = "End date must be a valid date.";
-                hasErrors = true;
-            }
+        else if (isNaN(parsedStart)) {
+            // Probably impossible
+            newNutritionGoalSet["-error-start-date"] = "Start date must be a valid date.";
+            hasErrors = true;
         }
-        else {
+        else if (!endIsNull && !isNaN(parsedEnd)) {
             // Implied neither is null.
             if (parsedStart > parsedEnd) {
                 newNutritionGoalSet["-error-start-date"] = "Start date must be before end date.";
