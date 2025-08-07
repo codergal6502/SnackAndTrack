@@ -6,11 +6,16 @@ import RecipeForm from "./components/RecipeForm";
 import RecipeCompute from "./components/RecipeCompute";
 import NutritionGoalSetList from "./components/NutritionGoalSetList";
 import NutritionGoalSetForm from "./components/NutritionGoalSetForm";
+import FoodJournal from "./components/FoodJournal";
 
 const AppRoutes = [
   {
     index: true,
     element: <Home />
+  },
+  {
+    path: '/foodjournal',
+    element: <FoodJournal />
   },
   {
     path: '/fooditemlist',

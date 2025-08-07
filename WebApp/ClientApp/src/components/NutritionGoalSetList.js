@@ -20,34 +20,34 @@ const NutritionGoalSetList = () => {
 
     const fetchNutritionGoalSets = async () => {
         const query = `
-            query GetNutritionGoalSets($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: NutritionGoalSetSortBy!) {
-                nutritionGoalSets(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
-                    items {
-                        id
+query GetNutritionGoalSets($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: NutritionGoalSetSortBy!) {
+    nutritionGoalSets(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
+        items {
+            id
+            name
+            nutritionGoalSetDayModes {
+                id
+                dayNumber
+                type
+            }
+            nutritionGoalSetNutrients {
+                id
+                nutritionGoalSetNutrientTargets {
+                    minimum
+                    maximum
+                    start
+                    end
+                }
+                nutrient {
+                    name
+                    defaultUnit {
                         name
-                        nutritionGoalSetDayModes {
-                            id
-                            dayNumber
-                            type
-                        }
-                        nutritionGoalSetNutrients {
-                            id
-                            nutritionGoalSetNutrientTargets {
-                                minimum
-                                maximum
-                                start
-                                end
-                            }
-                            nutrient {
-                                name
-                                defaultUnit {
-                                    name
-                                }
-                            }
-                        }
                     }
                 }
             }
+        }
+    }
+}
         `;
 
         const body = JSON.stringify({
@@ -138,7 +138,7 @@ const NutritionGoalSetList = () => {
                         <tr key={index}>
                             <td>{item.name}</td>
                             <td>
-                                <div class="btn-group" role="group" aria-label="Basic example">
+                                <div className="btn-group" role="group" aria-label="Basic example">
                                     <Link to={`/nutritiongoalsetview/${item.id}`} className="btn btn-primary">View</Link>
                                     <Link to={`/nutritiongoalsetform/${item.id}`} className="btn btn-secondary">Edit</Link>
                                 </div>

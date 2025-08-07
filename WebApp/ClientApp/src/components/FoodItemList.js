@@ -20,28 +20,28 @@ const FoodItemList = () => {
 
     const fetchFoodItems = async () => {
         const query = `
-            query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!) {
-                foodItems(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
-                    totalCount
-                    totalPages
-                    items {
-                        id
-                        name
-                        brand
-                        servingSizes {
-                            id
-                            quantity
-                            displayOrder
-                            unit {
-                                id
-                                abbreviationCsv
-                                name
-                                type
-                            }
-                        }
-                    }
+query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!) {
+    foodItems(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
+        totalCount
+        totalPages
+        items {
+            id
+            name
+            brand
+            servingSizes {
+                id
+                quantity
+                displayOrder
+                unit {
+                    id
+                    abbreviationCsv
+                    name
+                    type
                 }
             }
+        }
+    }
+}
         `;
 
         const body=JSON.stringify({
@@ -132,7 +132,7 @@ const FoodItemList = () => {
                             <td>{item.name}</td>
                             <td>{item.brand}</td>
                             <td>
-                                <div class="btn-group" role="group" aria-label="Basic example">
+                                <div className="btn-group" role="group" aria-label="Basic example">
                                     <Link to={`/fooditemview/${item.id}`} className="btn btn-primary">View</Link>
                                     <Link to={`/fooditemform/${item.id}`} className="btn btn-secondary">Edit</Link>
                                 </div>
