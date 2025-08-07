@@ -209,6 +209,7 @@ const NutritionGoalSetForm = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        // todo: rename validate* to populateErrorsIn*
         validateNutritionGoalSet({ ...nutritionGoalSet, [name]: value });
     };
 

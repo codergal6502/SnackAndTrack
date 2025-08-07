@@ -9,9 +9,12 @@ const FoodJournal = () => {
     // make it so users can bookmark and navigate
     const [searchParams, setSearchParams] = useSearchParams();
 
+    const defaultPopupState = { visible: false, quantity: '', foodItemOptions: [ ], selectedFoodItemOption: null, unitOptions: [ ], selectedUnitOption: null, "-show-errors": false };
+    const defaultJournalEntry = { foodItem: null, unit: null, quantity: null, time: null, nutrients: { } };
+
     // backing objects
-    const [calendarState, setCalendarState] = useState({})
-    const [foodItemPopupState, setFoodItemPopupState] = useState({ visible: false, foodItemId: '', unitId: '', quantity: '', foodItemOptions: [ ], selectedFoodItemOption: null, unitOptions: [ ], selectedUnitOption: null })
+    const [calendarState, setCalendarState] = useState({ journalEntries: [ {... defaultJournalEntry } ] })
+    const [foodItemPopupState, setFoodItemPopupState] = useState({... defaultPopupState })
 
     // lookups and select iptions
     const [unitDictionary, setUnitDictionary] = useState({});
@@ -134,30 +137,108 @@ query GetFoodItems($qName: String!) {
             const possibleUnitOptions = unitOptions.filter(uo => possibleUnitTypes.indexOf(uo.label) >= 0 );
                 
             const newFoodItemPopupState = {... foodItemPopupState, selectedFoodItemOption: selectedOption, unitOptions: possibleUnitOptions };
+            populateErrorsInFoodItemPopup(newFoodItemPopupState);
             setFoodItemPopupState(newFoodItemPopupState);
         }
         else {
             const newFoodItemPopupState = {... foodItemPopupState, selectedFoodItemOption: null, unitOptions: null };
+            populateErrorsInFoodItemPopup(newFoodItemPopupState);
             setFoodItemPopupState(newFoodItemPopupState);
         }
     }
 
     const handleFoodItemUnitChange = (selectedOption) => {
         const newFoodItemPopupState = {... foodItemPopupState, selectedUnitOption: selectedOption };
+        populateErrorsInFoodItemPopup(newFoodItemPopupState);
         setFoodItemPopupState(newFoodItemPopupState);
     }
 
     const handleFoodItemQuantityChange = (quantity) => {
         const newFoodItemPopupState = {... foodItemPopupState, quantity: quantity };
+        populateErrorsInFoodItemPopup(newFoodItemPopupState);
         setFoodItemPopupState(newFoodItemPopupState);
     }
 
-    const editFoodOnClick = (e) => {
-        setFoodItemPopupState({...foodItemPopupState, visible: true});
+    const editFoodOnClick = (index) => {
+        const journalEntry = calendarState.journalEntries[index];
+        setFoodItemPopupState({
+            ...defaultPopupState
+          , visible: true
+          , journalEntryIndex: index
+          , selectedFoodItemOption: ! journalEntry.foodItem ? null : { label: journalEntry.foodItem.name, value: journalEntry.foodItem.id }
+          , selectedUnitOption: ! journalEntry.unit ? null : { label: journalEntry.unit.name, value: journalEntry.unit.id }
+          , quantity: journalEntry.quantity 
+        });
     }
     
-    const handleModalClose = (e) => {
+    const handleModalOpen = () => {
+        setFoodItemPopupState({...foodItemPopupState, "-show-errors": false})
+    }
+
+    const handleModalCancelClose = (e) => {
         setFoodItemPopupState({...foodItemPopupState, visible: false});
+    }
+    
+    const handleModalSaveButtonClick = (e) => {
+        let newFoodItemPopupState = {...foodItemPopupState, "-show-errors": true};
+        if (populateErrorsInFoodItemPopup(newFoodItemPopupState)) {
+            setFoodItemPopupState(newFoodItemPopupState);
+        }
+        else {
+            const newJournalEntry = {
+                foodItem: foodItemPopupState.selectedFoodItemOption.foodItem
+              , unit: foodItemPopupState.selectedUnitOption.unit
+              , quantity: foodItemPopupState.quantity
+              , time: null
+              , nutrients: { }
+            }
+
+            const newJournalEntries = [...calendarState.journalEntries, {...defaultJournalEntry}];
+            newJournalEntries[foodItemPopupState.journalEntryIndex] = newJournalEntry;
+            setCalendarState({...calendarState, journalEntries: newJournalEntries});
+            setFoodItemPopupState({... defaultPopupState });
+        }
+    }
+
+    const populateErrorsInFoodItemPopup = (newFoodItemPopupState) => {
+        let hasErrors = false;
+
+        if (!newFoodItemPopupState.selectedFoodItemOption) {
+            newFoodItemPopupState["-error-foodItem"] = "You must select a food item.";
+            hasErrors = true;
+        }
+        else {
+            delete newFoodItemPopupState["-error-foodItem"];
+        }
+
+        if (!newFoodItemPopupState.selectedUnitOption) {
+            newFoodItemPopupState["-error-unit"] = "You must select a unit.";
+            hasErrors = true;
+        }
+        else {
+            delete newFoodItemPopupState["-error-unit"];
+        }
+        
+        const quantityIsNull = !newFoodItemPopupState.quantity?.toString()?.trim();
+        const parsedQuantity = parseInt(newFoodItemPopupState.quantity);
+        
+        if (quantityIsNull) {
+            newFoodItemPopupState["-error-quantity"] = "You must specify how much."
+            hasErrors = true;
+        }
+        else if (isNaN(parsedQuantity)) {
+            newFoodItemPopupState["-error-quantity"] = "Quantity must be a valid number."
+            hasErrors = true;
+        }
+        else if (0 > parsedQuantity) {
+            newFoodItemPopupState["-error-quantity"] = "Quantity must greater than 0."
+            hasErrors = true;
+        }
+        else {
+            delete newFoodItemPopupState["-error-quantity"];
+        }
+
+        return hasErrors;
     }
 
     const populateCalendarStateByParameters = (calendarState) => {
@@ -303,15 +384,17 @@ query GetFoodItems($qName: String!) {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>
-                            <div className='input-group'>
-                                <input readOnly defaultValue="Chickpea Scramble (Unsalted), 1 Serving" className='form-control' />
-                                <button className='btn btn-secondary' onClick={editFoodOnClick}><i className="bi bi-pencil-square"></i></button>
-                            </div>
-                        </td>
-                        {calendarState.nutrientTargets?.map((nt, idx) => <td scope="col" key={idx} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{0}</td>)}
-                    </tr>
+                    {calendarState.journalEntries.map((ce, idx) => 
+                        <tr key={idx}>
+                            <td>
+                                <div className='input-group'>
+                                    <input readOnly className='form-control' value={ce.foodItem && ce.unit && ce.quantity ? `${ce.foodItem.name}, ${ce.quantity} ${ce.unit.name}` : ''} />
+                                    <button className='btn btn-secondary' onClick={() => editFoodOnClick(idx)}><i className="bi bi-pencil-square"></i></button>
+                                </div>
+                            </td>
+                            {calendarState.nutrientTargets?.map((nt, idx) => <td scope="col" key={idx} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{0}</td>)}
+                        </tr>
+                    )}
                 </tbody>
                 <tfoot>
                     <tr>
@@ -320,7 +403,7 @@ query GetFoodItems($qName: String!) {
                 </tfoot>
             </table>
 
-            <Modal show={foodItemPopupState.visible} onHide={handleModalClose} centered>
+            <Modal show={foodItemPopupState.visible} onShow={handleModalOpen} onHide={handleModalCancelClose} centered>
                 <Modal.Header>Record Food</Modal.Header>
                 <Modal.Body>
                     <div className="mb-3">
@@ -332,8 +415,9 @@ query GetFoodItems($qName: String!) {
                             isClearable
                             value={foodItemPopupState.selectedFoodItemOption}
                             classNamePrefix="react-select"
-                            className={`${foodItemPopupState["-show-errors"] && foodItemPopupState["-error-foodItemId"] ? 'is-invalid' : ''}`}
+                            className={`${foodItemPopupState["-show-errors"] && foodItemPopupState["-error-foodItem"] ? 'is-invalid' : ''}`}
                         />
+                        {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-foodItem"]}</div>))}
                         <label htmlFor="unitSelect" className='form-label'>Unit:</label>
                         <Select
                             id="unitSelect"
@@ -342,10 +426,10 @@ query GetFoodItems($qName: String!) {
                             onChange={(selectedOption) => { handleFoodItemUnitChange(selectedOption) }}
                             value={foodItemPopupState.selectedUnitOption}
                             classNamePrefix="react-select"
-                            className={`${foodItemPopupState["-show-errors"] && foodItemPopupState["-error-unitId"] ? 'is-invalid' : ''}`}
+                            className={`${foodItemPopupState["-show-errors"] && foodItemPopupState["-error-unit"] ? 'is-invalid' : ''}`}
                             placeholder="unit"
                         />
-                        {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-unitId"]}</div>))}
+                        {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-unit"]}</div>))}
                         <label htmlFor="quantity" className='form-label'>Quantity</label>
                         <input
                             id="quantity"
@@ -355,11 +439,12 @@ query GetFoodItems($qName: String!) {
                             className={`form-control ${(foodItemPopupState["-show-errors"] && foodItemPopupState["-error-quantity"]) ? "is-invalid" : ""}`}
                             placeholder={foodItemPopupState?.selectedUnitOption?.unit?.name}
                         />
+                        {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-quantity"]}</div>))}
                     </div>
                 </Modal.Body>
                 <Modal.Footer>
-                    <button type='button' className='btn btn-primary' onClick={handleModalClose}>Save</button>
-                    <button type='button' className='btn btn-Secondary' onClick={handleModalClose}>Cancel</button>
+                    <button type='button' className='btn btn-primary' onClick={handleModalSaveButtonClick}>Accept</button>
+                    <button type='button' className='btn btn-Secondary' onClick={handleModalCancelClose}>Cancel</button>
                 </Modal.Footer>
             </Modal>
         </div>
