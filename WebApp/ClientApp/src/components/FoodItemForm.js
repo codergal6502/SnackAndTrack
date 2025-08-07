@@ -207,6 +207,7 @@ const FoodItemForm = () => {
         const data = await response.json();
         setFoodItem(data);
 
+        // todo: what is this for?
         data.nutrients.forEach(element => {
             
         });

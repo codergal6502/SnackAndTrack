@@ -68,8 +68,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             NutritionGoalSet nutritionGoalSet = new NutritionGoalSet {
                 Id = Guid.NewGuid()
               , Name = model.Name
-              , StartDate = DateOnly.FromDateTime(model.StartDate)
-              , EndDate = model.EndDate.HasValue ? DateOnly.FromDateTime(model.EndDate.Value) : null
+              , StartDate = model.StartDate
+              , EndDate = model.EndDate.HasValue ? model.EndDate.Value : null
               , Period = model.Period
               , NutritionGoalSetDayModes = []
               , NutritionGoalSetNutrients = []
@@ -98,8 +98,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
 
             nutritionGoalSet.Name = model.Name;
-            nutritionGoalSet.StartDate = DateOnly.FromDateTime(model.StartDate);
-            nutritionGoalSet.EndDate = model.EndDate.HasValue ? DateOnly.FromDateTime(model.EndDate.Value) : null;
+            nutritionGoalSet.StartDate = model.StartDate;
+            nutritionGoalSet.EndDate = model.EndDate;
             nutritionGoalSet.Period = model.Period;
 
             await PopulateCollections(model, nutritionGoalSet);
@@ -228,8 +228,8 @@ namespace SnackAndTrack.WebApp.Controllers {
             return new NutritionGoalSetModel {
                 Id = nutritionGoalSet.Id
               , Name = nutritionGoalSet.Name
-              , StartDate = nutritionGoalSet.StartDate.ToDateTime(new TimeOnly(0))
-              , EndDate = nutritionGoalSet.EndDate?.ToDateTime(new TimeOnly(0))
+              , StartDate = nutritionGoalSet.StartDate
+              , EndDate = nutritionGoalSet.EndDate
               , Period = nutritionGoalSet.Period
               , DayModes = nutritionGoalSet.NutritionGoalSetDayModes.Select(dm => new NutritionGoalSetModel.DayMode {
                     Type = Enum.Parse<NutritionGoalSetModel.DayMode.DayModeEnum>(dm.Type.ToString())

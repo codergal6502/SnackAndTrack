@@ -45,20 +45,20 @@ const FoodItemList = () => {
         `;
 
         const body=JSON.stringify({
-                query,
-                variables: {
-                    page: parseInt(page),
-                    pageSize: parseInt(pageSize),
-                    sortOrder,
-                    sortBy,
-                },
-            });
-        const response = await fetch('/graphql/query', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+            query
+          , variables: {
+                page: parseInt(page)
+              , pageSize: parseInt(pageSize)
+              , sortOrder
+              , sortBy
             },
-            body: body,
+        });
+        const response = await fetch('/graphql/query', {
+            method: 'POST'
+          , headers: {
+                'Content-Type': 'application/json'
+            }
+          , body: body
         });
         
         const { data } = await response.json();
@@ -112,14 +112,12 @@ const FoodItemList = () => {
                         onChange={selectedOption => setSortOrder(selectedOption.value)}
                     />
                 </div>
-                <div class="me-3">
+                <div className="me-3">
                     <label className="form-label">&nbsp;</label>
                     <button type="button" className='btn btn-info form-control' onClick={fetchFoodItems}>refresh</button>
                 </div>
             </div>
 
-
-            
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>

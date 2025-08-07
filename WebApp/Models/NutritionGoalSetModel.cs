@@ -6,8 +6,8 @@ namespace SnackAndTrack.WebApp.Models {
     {
         public Guid? Id { get; set; }
         public required String Name { get; set; }
-        public required DateTime StartDate { get; set; }
-        public required DateTime? EndDate { get; set; }
+        public required DateOnly StartDate { get; set; }
+        public required DateOnly? EndDate { get; set; }
         public required Int16 Period { get; set; }
         public required IList<DayMode> DayModes { get; set; }
         public class DayMode

@@ -19,6 +19,7 @@ namespace SnackAndTrack.WebApp {
             builder.Services.AddControllersWithViews().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new EmptyStringDateConverter());
+                options.JsonSerializerOptions.Converters.Add(new EmptyInt16DateConverter());
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter<WebApp.Models.NutritionGoalSetModel.DayMode.DayModeEnum>());
             });
 

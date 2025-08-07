@@ -15,6 +15,12 @@ const NutritionGoalSetForm = () => {
         fetchNutrients();
     }, []);
 
+    useEffect(() => {
+        if (Object.keys(nutrientDictionary).length > 0 && id) {
+            fetchNutritionGoalSet(id);
+        }
+    }, [nutrientDictionary, id])
+
     const validateAndSetNutritionGoalSet = (nutritionGoalSet, showErrors) => {
         const newNutritionGoalSet = { ... nutritionGoalSet, "-show-errors": showErrors || nutritionGoalSet["-show-errors"] };
         validateNutritionGoalSet(newNutritionGoalSet);
@@ -132,8 +138,10 @@ const NutritionGoalSetForm = () => {
     const validateTarget = (target) => {
         let hasErrors = false;
 
-        const minIsNull = ! target.minimum?.trim();
-        const maxIsNull = ! target.maximum?.trim();
+        // This ternary papers over React not liking nulls in inputs and
+        // .NET returning numbers which in JavaScript don't have .trim().
+        const minIsNull = ! target.minimum?.toString()?.trim();
+        const maxIsNull = ! target.maximum?.toString()?.trim();
         const parsedMin = parseInt(target.minimum);
         const parsedMax = parseInt(target.maximum);
 
@@ -189,6 +197,14 @@ const NutritionGoalSetForm = () => {
                 }
             }
         }
+
+        return hasErrors;
+    }
+
+    const fetchNutritionGoalSet = async (id) => {
+        const response = await fetch(`/api/nutritiongoalsets/${id}`);
+        const data = await response.json();
+        setNutritionGoalSet(data);
     }
 
     const handleChange = (e) => {
@@ -373,9 +389,9 @@ const NutritionGoalSetForm = () => {
         const hasErrors = validateAndSetNutritionGoalSet(nutritionGoalSet, true);
 
         if (!hasErrors) {
-            console.log("do save", nutritionGoalSet);
+            /** @type {Response} */ let response;
             if (id) {
-                await fetch(`/api/nutritiongoalsets/${id}`, {
+                response = await fetch(`/api/nutritiongoalsets/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -383,7 +399,7 @@ const NutritionGoalSetForm = () => {
                     body: JSON.stringify(nutritionGoalSet),
                 });
             } else {
-                await fetch('/api/nutritiongoalsets', {
+                response = await fetch('/api/nutritiongoalsets', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -391,7 +407,10 @@ const NutritionGoalSetForm = () => {
                     body: JSON.stringify(nutritionGoalSet),
                 });
             }
-            navigate('/nutriongoalsetlist');
+
+            if (response.ok) {
+                navigate('/nutritionGoalSetList');
+            }
         }
     };
 
@@ -528,7 +547,7 @@ const NutritionGoalSetForm = () => {
                                     <label htmlFor="page" className="form-label">{target.start == target.end ? `Day ${target.start + 1}` : `Days ${target.start+1}-${target.end+1}`} Minimum:</label>
                                     <input
                                         min={0}
-                                        value={target.minimum}
+                                        value={target.minimum || ""}
                                         onChange={(e) => handleTargetMinimumChange(nutIdx, startDay, e.target.value)}
                                         type='number'
                                         className={`form-control ${(nutritionGoalSet["-show-errors"] && target["-error-minimum"]) ? "is-invalid" : ""}`}
@@ -540,7 +559,7 @@ const NutritionGoalSetForm = () => {
                                     <label htmlFor="page" className="form-label">{target.start == target.end ? `Day ${target.start + 1}` : `Days ${target.start+1}-${target.end+1}`} Maximum:</label>
                                     <input
                                         min={0}
-                                        value={target.maximum}
+                                        value={target.maximum || ""}
                                         onChange={(e) => handleTargetMaximumChange(nutIdx, startDay, e.target.value)}
                                         type='number'
                                         className={`form-control ${(nutritionGoalSet["-show-errors"] && target["-error-maximum"]) ? "is-invalid" : ""}`}

@@ -48,6 +48,10 @@ const AppRoutes = [
     path: '/nutritiongoalsetform',
     element: <NutritionGoalSetForm />
   },
+  {
+    path: '/nutritiongoalsetform/:id',
+    element: <NutritionGoalSetForm />
+  },
 ];
 
 export default AppRoutes;
