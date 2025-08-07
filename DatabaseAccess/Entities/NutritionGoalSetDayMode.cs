@@ -9,6 +9,8 @@ namespace SnackAndTrack.DatabaseAccess.Entities
 
         [Column(TypeName = "VARCHAR(16)")]
         public virtual required DayModeType Type { get; set; }
+        public virtual required Int16 DayNumber { get; set; }
+
         public enum DayModeType { DifferentGoal, SameGoal }
     }
 }

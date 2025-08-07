@@ -16,21 +16,26 @@ namespace SnackAndTrack.WebApp.Controllers {
 
         // GET: api/NutritionGoalSets
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<NutritionGoalSetModel>>> GetNutritionGoalSets([FromQuery] String? q) {
-            throw new NotImplementedException();
+        public async Task<ActionResult<IEnumerable<NutritionGoalSetModel>>> GetNutritionGoalSets([FromQuery] String? q, [FromQuery] String? qName) {
+            IQueryable<NutritionGoalSet> nutritionGoalSets = InclusiveQueryable();
+
+            if (!String.IsNullOrWhiteSpace(q)) {
+                q = q.Trim().ToLower();
+                nutritionGoalSets = nutritionGoalSets.Where(s => s.Name.ToLower().Contains(q));
+            }
+
+            if (!String.IsNullOrWhiteSpace(qName)) {
+                qName = qName.Trim().ToLower();
+                nutritionGoalSets = nutritionGoalSets.Where(s => s.Name.ToLower().Contains(qName));
+            }
+
+            return await nutritionGoalSets.Select(s => ConvertEntityToModel(s)).ToListAsync();
         }
 
         // GET: api/NutritionGoalSets/55555555-5555-5555-5555-555555555555
         [HttpGet("{id}")]
         public async Task<ActionResult<NutritionGoalSetModel>> GetNutritionGoalSet(Guid id) {
-            NutritionGoalSet? nutritionGoalSet =
-                await this
-                    ._context
-                    .NutritionGoalSets
-                    .Include(ngs => ngs.NutritionGoalSetDayModes)
-                    .Include(ngs => ngs.NutritionGoalSetNutrients).ThenInclude(ngsn => ngsn.Nutrient)
-                    .Include(ngs => ngs.NutritionGoalSetNutrients).ThenInclude(ngsn => ngsn.NutritionGoalSetNutrientTargets)
-                    .SingleOrDefaultAsync(ngs => ngs.Id == id);
+            NutritionGoalSet? nutritionGoalSet = await GetSingleNutritionGoalSet(id);
 
             if (null == nutritionGoalSet) {
                 return NotFound();
@@ -40,29 +45,30 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
         }
 
-        private IQueryable<Object> SingleNutritionGoalSet() {
-            // // The auto-refactor wanted this to return IIncludableQueryable<NutritionGoalSet, Unit>,
-            // // but that is to specific.
-            // return this
-            //     ._context
-            //     .NutritionGoalSets
-            //     .Include(fi => fi.GeneratedFrom)
-            //     .Include(fi => fi.NutritionGoalSetNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Nutrient)
-            //     .Include(fi => fi.NutritionGoalSetNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Unit)
-            //     .Include(fi => fi.ServingSizes.OrderBy(s => s.DisplayOrder)).ThenInclude(s => s.Unit);
-            throw new NotImplementedException();
+        private async Task<NutritionGoalSet?> GetSingleNutritionGoalSet(Guid id)
+        {
+            return await InclusiveQueryable().SingleOrDefaultAsync(ngs => ngs.Id == id);
+        }
+
+        private IQueryable<NutritionGoalSet> InclusiveQueryable()
+        {
+            return this
+                ._context
+                .NutritionGoalSets
+                .Include(ngs => ngs.NutritionGoalSetDayModes.OrderBy(ngsdm => ngsdm.DayNumber))
+                .Include(ngs => ngs.NutritionGoalSetNutrients).ThenInclude(ngsn => ngsn.Nutrient)
+                .Include(ngs => ngs.NutritionGoalSetNutrients).ThenInclude(ngsn => ngsn.NutritionGoalSetNutrientTargets);
         }
 
         // POST: api/NutritionGoalSets
         [HttpPost]
         public async Task<ActionResult<Object>> PostNutritionGoalSet(NutritionGoalSetModel model) {
-            var nutrientIds = model.Nutrients.Select(n => n.NutrientId);
             await this._context.Nutrients.LoadAsync();
 
             NutritionGoalSet nutritionGoalSet = new NutritionGoalSet {
                 Id = Guid.NewGuid()
               , Name = model.Name
-              , StartDate = DateOnly.FromDateTime(model.StartDate ?? throw new SnackAndTrackControllerException("Cannot create nutrition goal set with no start date."))
+              , StartDate = DateOnly.FromDateTime(model.StartDate)
               , EndDate = model.EndDate.HasValue ? DateOnly.FromDateTime(model.EndDate.Value) : null
               , Period = model.Period
               , NutritionGoalSetDayModes = []
@@ -77,69 +83,144 @@ namespace SnackAndTrack.WebApp.Controllers {
             return CreatedAtAction(nameof(NutritionGoalSet), new { nutritionGoalSet.Id }, ConvertEntityToModel(nutritionGoalSet));
         }
 
+        // PUT: api/NutritionGoalSets/55555555-5555-5555-5555-555555555555
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutNutritionGoalSet(Guid id, NutritionGoalSetModel model) {
+            if (id != model.Id) {
+                return BadRequest();    
+            }
+
+            await this._context.Nutrients.LoadAsync();
+            var nutritionGoalSet = await GetSingleNutritionGoalSet(id);
+
+            if (null == nutritionGoalSet) {
+                return NotFound();
+            }
+
+            nutritionGoalSet.Name = model.Name;
+            nutritionGoalSet.StartDate = DateOnly.FromDateTime(model.StartDate);
+            nutritionGoalSet.EndDate = model.EndDate.HasValue ? DateOnly.FromDateTime(model.EndDate.Value) : null;
+            nutritionGoalSet.Period = model.Period;
+
+            await PopulateCollections(model, nutritionGoalSet);
+
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // DELETE: api/NutritionGoalSets/55555555-5555-5555-5555-555555555555
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteNutritionGoalSet(Guid id) {
+            // To cascade the delete at the entity-framework level, you have
+            // to load the entire object graph, since the delete only cascades
+            // one level by default.
+            var nutritionGoalSet = await GetSingleNutritionGoalSet(id);
+            if (nutritionGoalSet == null)
+            {
+                return NotFound();
+            }
+
+            this._context.NutritionGoalSets.Remove(nutritionGoalSet);
+            await this._context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private void PopulateDayModes(NutritionGoalSetModel model, NutritionGoalSet nutritionGoalSet) {
+            var ngsDmsToRemove = nutritionGoalSet.NutritionGoalSetDayModes.ToList();
+
+            for (var index = 0; index < model.DayModes.Count; index++) {
+                var dayNumber = (Int16) (index + 1);
+                var dm = model.DayModes[index];
+                var ngsDayMode = nutritionGoalSet.NutritionGoalSetDayModes.SingleOrDefault(ngsdm => dayNumber == ngsdm.DayNumber);
+                
+                if (null == ngsDayMode) {
+                    ngsDayMode = new NutritionGoalSetDayMode {
+                        Id = Guid.NewGuid()
+                      , Type = Enum.Parse<NutritionGoalSetDayMode.DayModeType>(dm.Type.ToString()) // See https://stackoverflow.com/a/1818149
+                      , DayNumber = dayNumber
+                    };
+
+                    nutritionGoalSet.NutritionGoalSetDayModes.Add(ngsDayMode);
+                    this._context.Add(ngsDayMode);
+                }
+                else {
+                    ngsDayMode.Type = Enum.Parse<NutritionGoalSetDayMode.DayModeType>(dm.Type.ToString()); // See https://stackoverflow.com/a/1818149
+                    ngsDmsToRemove.Remove(ngsDayMode);
+                }
+            }
+            
+            foreach (var ngsDm in ngsDmsToRemove) {
+                nutritionGoalSet.NutritionGoalSetDayModes.Remove(ngsDm);
+                this._context.Remove(ngsDm);
+            }
+        }
+
         private async Task PopulateCollections(NutritionGoalSetModel model, NutritionGoalSet nutritionGoalSet)
         {
             PopulateDayModes(model, nutritionGoalSet);
             await PopulateNutrients(model, nutritionGoalSet);
         }
 
-        // PUT: api/NutritionGoalSets/55555555-5555-5555-5555-555555555555
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutNutritionGoalSet(Guid id, NutritionGoalSetModel model) {
-            throw new NotImplementedException();
-        }
-
-        // DELETE: api/NutritionGoalSets/55555555-5555-5555-5555-555555555555
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteNutritionGoalSet(Guid id) {
-            throw new NotImplementedException();
-            // var NutritionGoalSet = await this._context.NutritionGoalSets.FindAsync(id);
-            // if (NutritionGoalSet == null)
-            // {
-            //     return NotFound();
-            // }
-
-            // this._context.NutritionGoalSets.Remove(NutritionGoalSet);
-            // await this._context.SaveChangesAsync();
-
-            // return NoContent();
-        }
-
-        private void PopulateDayModes(NutritionGoalSetModel model, NutritionGoalSet nutritionGoalSet) {
-            foreach(var dm in model.DayModes) {
-                var dayMode = new NutritionGoalSetDayMode {
-                    Id = Guid.NewGuid()
-                  , Type = Enum.Parse<NutritionGoalSetDayMode.DayModeType>(dm.Type.ToString()) // See https://stackoverflow.com/a/1818149
-                };
-
-                nutritionGoalSet.NutritionGoalSetDayModes.Add(dayMode);
-                this._context.Add(dayMode);
-            }         
-        }
-
         private async Task PopulateNutrients(NutritionGoalSetModel model, NutritionGoalSet nutritionGoalSet) {
+            var nutrientsToRemove = nutritionGoalSet.NutritionGoalSetNutrients.ToList();
+            
             foreach (var n in model.Nutrients) {
-                var ngsNutrient = new NutritionGoalSetNutrient {
-                    Id = Guid.NewGuid()
-                  , Nutrient = await this._context.Nutrients.FindAsync(n.NutrientId) ?? throw new SnackAndTrackControllerException($"Could not find nutrient with ID {n.NutrientId}.")
-                  , NutritionGoalSetNutrientTargets = []
-                };
-
-                nutritionGoalSet.NutritionGoalSetNutrients.Add(ngsNutrient);
-                this._context.Add(ngsNutrient);
+                var ngsNutrient = nutritionGoalSet.NutritionGoalSetNutrients.SingleOrDefault(ngsn => ngsn.Nutrient.Id == n.NutrientId);
                 
-                foreach(var kvp in n.Targets) {
-                    var target = new NutritionGoalSetNutrientTarget {
+                if (null == ngsNutrient) {
+                    ngsNutrient = new NutritionGoalSetNutrient {
                         Id = Guid.NewGuid()
-                      , Minimum = kvp.Value.Minimum
-                      , Maximum = kvp.Value.Maximum
-                      , Start = kvp.Value.Start
-                      , End = kvp.Value.End
+                      , Nutrient = await this._context.Nutrients.FindAsync(n.NutrientId) ?? throw new SnackAndTrackControllerException($"Could not find nutrient with ID {n.NutrientId}.")
+                      , NutritionGoalSetNutrientTargets = []
                     };
 
-                    ngsNutrient.NutritionGoalSetNutrientTargets.Add(target);
-                    this._context.Add(target);
+                    nutritionGoalSet.NutritionGoalSetNutrients.Add(ngsNutrient);
+                    this._context.Add(ngsNutrient);
                 }
+                else {
+                    // That is, keep the nutrient in the goal.
+                    nutrientsToRemove.Remove(ngsNutrient);
+                }
+
+                var targetsToRemove = ngsNutrient.NutritionGoalSetNutrientTargets.ToList();
+                
+                foreach (var kvp in n.Targets)
+                {
+                    var target = ngsNutrient.NutritionGoalSetNutrientTargets.SingleOrDefault(t => t.Start == kvp.Value.Start);
+                    
+                    if (null == target) {
+                        target = new NutritionGoalSetNutrientTarget
+                        {
+                            Id = Guid.NewGuid()
+                          , Minimum = kvp.Value.Minimum
+                          , Maximum = kvp.Value.Maximum
+                          , Start = kvp.Value.Start
+                          , End = kvp.Value.End
+                        };
+
+                        ngsNutrient.NutritionGoalSetNutrientTargets.Add(target);
+                        this._context.Add(target);
+                    }
+                    else {
+                        target.Minimum = kvp.Value.Minimum;
+                        target.Maximum = kvp.Value.Maximum;
+                        target.End = kvp.Value.End;
+
+                        targetsToRemove.Remove(target);
+                    }
+                }
+                
+                foreach (var targetToRemove in targetsToRemove) {
+                    ngsNutrient.NutritionGoalSetNutrientTargets.Remove(targetToRemove);
+                    this._context.Remove(targetToRemove);
+                }
+            }
+            
+            foreach (var nutrientToRemove in nutrientsToRemove) {
+                nutritionGoalSet.NutritionGoalSetNutrients.Remove(nutrientToRemove);
+                this._context.Remove(nutrientToRemove);
             }
         }
 

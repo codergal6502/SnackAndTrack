@@ -166,6 +166,9 @@ namespace DatabaseAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<short>("DayNumber")
+                        .HasColumnType("smallint");
+
                     b.Property<Guid?>("NutritionGoalSetId")
                         .HasColumnType("uuid");
 

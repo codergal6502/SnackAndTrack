@@ -12,7 +12,7 @@ using SnackAndTrack.DatabaseAccess;
 namespace DatabaseAccess.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250806230146_NutritionGoalImplementation")]
+    [Migration("20250806233823_NutritionGoalImplementation")]
     partial class NutritionGoalImplementation
     {
         /// <inheritdoc />
@@ -168,6 +168,9 @@ namespace DatabaseAccess.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<short>("DayNumber")
+                        .HasColumnType("smallint");
 
                     b.Property<Guid?>("NutritionGoalSetId")
                         .HasColumnType("uuid");

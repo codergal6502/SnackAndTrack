@@ -32,6 +32,7 @@ namespace DatabaseAccess.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Type = table.Column<string>(type: "VARCHAR(16)", nullable: false),
+                    DayNumber = table.Column<short>(type: "smallint", nullable: false),
                     NutritionGoalSetId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>

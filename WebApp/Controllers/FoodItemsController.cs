@@ -171,6 +171,7 @@ namespace SnackAndTrack.WebApp.Controllers {
 
                     // Any that are left at the end should be removed from the database.
                     existingServingSizes.Remove(existingServingSize);
+                    this._context.Remove(existingServingSize);
                 }
             }
 
