@@ -32,7 +32,7 @@ const FoodJournal = () => {
 
     useEffect(() => {
         const loadEntries = async () => {
-            if (nutritionGoalSetDictionary && nutritionGoalSetOptions && searchParams) {
+            if (unitDictionary && nutritionGoalSetDictionary && nutritionGoalSetOptions && searchParams) {
                 const searchParamsJsObject = convertSearchParamsToJsObjct(searchParams);
                 const newJournalState = generateJournalStateUsingSearchParams({ ...journalState }, searchParamsJsObject);
                 const foodJournalEntries = await fetchFoodJournalEntries(newJournalState.date);
@@ -41,27 +41,15 @@ const FoodJournal = () => {
 
                 for (const foodJournalEntry of foodJournalEntries) {
                     const journalEntry = {
-                        foodItem: foodJournalEntry.foodItem
+                        journalEntryId: foodJournalEntry.id
+                      , foodItem: foodJournalEntry.foodItem
                       , unit: foodJournalEntry.unit
                       , quantity: foodJournalEntry.quantity
                       , time: foodJournalEntry.time
                       , nutrients: { }
                     };
 
-
-/*
-
-  "nutrients": {
-    "ef730af5-b989-4eb4-930e-9ad51d1e530a": 0,
-    "a94c0f7e-f495-42c9-85ed-717f62139680": 1556.050048828125,
-    "674fbe28-0638-476c-bcb1-31f16fc7fb36": 126.3349609375,
-    "a673d7c3-1acd-45b8-b294-8269afebef83": 44.111656188964844,
-    "e0458e7d-f734-4680-bfbd-a2630ffd4970": 756.7998046875
-  },
-
-*/
-
-
+                    populateJournalEntryNutrients(journalEntry, newJournalState.nutrientTargets, journalEntry.foodItem);
                     newJournalState.journalEntries.push(journalEntry);
                 }
 
@@ -72,7 +60,7 @@ const FoodJournal = () => {
         };
 
         loadEntries();
-    }, [searchParams, nutritionGoalSetDictionary, nutritionGoalSetOptions])
+    }, [searchParams, nutritionGoalSetDictionary, nutritionGoalSetOptions, unitDictionary])
 
     const fetchAndSetUnits = async () => {
         const query =  `
@@ -232,6 +220,7 @@ query GetFoodJournalEntries($date: DateOnly) {
       unit {
         id
         name
+        type
       }
     }
   }
@@ -325,6 +314,78 @@ query GetFoodJournalEntries($date: DateOnly) {
     const handleModalCancelClose = (e) => {
         setFoodItemPopupState({...foodItemPopupState, visible: false});
     }
+
+    
+    const populateJournalEntryNutrients = (newJournalEntry, nutrientTargets, foodItem) => {
+        for (const nutrientTarget of nutrientTargets) {
+            const fi = foodItem;
+            const fin = fi.foodItemNutrients.filter(fin => fin.nutrient.id == nutrientTarget.nutrientId)[0];
+            const s = fi.servingSizes.filter(s => s.unit.type == newJournalEntry.unit.type)[0];
+            
+            if (!s) {
+                // TODO: log error somehow!
+            }
+            else if (fin) {
+                // A little dimensional analysis. We have food item quantity. We want nutrient quantity.
+                
+                // jFiQ is the food item quantity in the journal
+                // jFiU is the food item unit in the journal
+                // sFiU is the food item unit in the serving
+                // sFiQ is the food item quantity per serving
+                // sNQ  is the nutrient quantity per serving
+                // sNU  is the nutrient unit in the serving
+                // jNU  is the nutrient unit in the journal
+                const jFiQ  = newJournalEntry.quantity;
+                const jFiU  = newJournalEntry.unit.id;
+                const sFiU  = s.unit.id;
+                const sFiQ  = s.quantity;
+                const sNQ   = fin.quantity;
+                const sNU   = fin.unit.id;
+                const jNU   = nutrientTarget.unitId;
+
+                // jFiQ (jFiU)   (sFiU)       1         sNQ (sNU)   (jNU)
+                // ----------- • ------ • ----------- • --------- • -----
+                //               (jFiU)   sFiQ (sFiU)               (sNU)
+                //                 A          A            A           A          
+                //                 |          |            |           
+                //                 |          |            nutrient logged
+                //                 |          number of servings
+                //                 probably 1
+                
+                let sjFiURatio;
+                if(jFiU == sFiU) {
+                    sjFiURatio = 1;
+                }
+                else {
+                    let fromUnit = unitDictionary[jFiU];
+                    let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == sFiU)[0];
+                    sjFiURatio = conversion.ratio;
+                };
+
+                let jsNURatio;
+                if (jNU == sNU) {
+                    jsNURatio = 1;
+                }
+                else {
+                    jsNURatio = 1;
+                    let fromUnit = unitDictionary[sNU];
+                    let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == jNU)[0];
+                    jsNURatio = conversion.ratio;
+                }
+
+                let nutrientToJournal = jFiQ;
+                nutrientToJournal *= sjFiURatio;
+                nutrientToJournal /= sFiQ;
+                nutrientToJournal *= sNQ;
+                nutrientToJournal *= jsNURatio;
+
+                newJournalEntry.nutrients[nutrientTarget.nutrientId] = nutrientToJournal;
+            }
+            else {
+                newJournalEntry.nutrients[nutrientTarget.nutrientId] = 0;
+            }
+        }
+    }
     
     const handleModalSaveButtonClick = async (e) => {
         let newFoodItemPopupState = {...foodItemPopupState, "-show-errors": true};
@@ -385,74 +446,7 @@ query GetFoodJournalEntries($date: DateOnly) {
             newJournalEntry.journalEntryId = journalEntryId;
 
             if (response.ok) {
-                for (const nutrientTarget of journalState.nutrientTargets) {
-                    const fi = foodItemPopupState.selectedFoodItemOption.foodItem;
-                    const fin = fi.foodItemNutrients.filter(fin => fin.nutrient.id == nutrientTarget.nutrientId)[0];
-                    const s = fi.servingSizes.filter(s => s.unit.type == newJournalEntry.unit.type)[0];
-                    
-                    if (!s) {
-                        // TODO: log error somehow!
-                    }
-                    else if (fin) {
-                        // A little dimensional analysis. We have food item quantity. We want nutrient quantity.
-                        
-                        // jFiQ is the food item quantity in the journal
-                        // jFiU is the food item unit in the journal
-                        // sFiU is the food item unit in the serving
-                        // sFiQ is the food item quantity per serving
-                        // sNQ  is the nutrient quantity per serving
-                        // sNU  is the nutrient unit in the serving
-                        // jNU  is the nutrient unit in the journal
-                        const jFiQ  = newJournalEntry.quantity;
-                        const jFiU  = newJournalEntry.unit.id;
-                        const sFiU  = s.unit.id;
-                        const sFiQ  = s.quantity;
-                        const sNQ   = fin.quantity;
-                        const sNU   = fin.unit.id;
-                        const jNU   = nutrientTarget.unitId;
-
-                        // jFiQ (jFiU)   (sFiU)       1         sNQ (sNU)   (jNU)
-                        // ----------- • ------ • ----------- • --------- • -----
-                        //               (jFiU)   sFiQ (sFiU)               (sNU)
-                        //                 A          A            A           A          
-                        //                 |          |            |           
-                        //                 |          |            nutrient logged
-                        //                 |          number of servings
-                        //                 probably 1
-                        
-                        let sjFiURatio;
-                        if(jFiU == sFiU) {
-                            sjFiURatio = 1;
-                        }
-                        else {
-                            let fromUnit = unitDictionary[jFiU];
-                            let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == sFiU)[0];
-                            sjFiURatio = conversion.ratio;
-                        };
-
-                        let jsNURatio;
-                        if (jNU == sNU) {
-                            jsNURatio = 1;
-                        }
-                        else {
-                            jsNURatio = 1;
-                            let fromUnit = unitDictionary[sNU];
-                            let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == jNU)[0];
-                            jsNURatio = conversion.ratio;
-                        }
-
-                        let nutrientToJournal = jFiQ;
-                        nutrientToJournal *= sjFiURatio;
-                        nutrientToJournal /= sFiQ;
-                        nutrientToJournal *= sNQ;
-                        nutrientToJournal *= jsNURatio;
-
-                        newJournalEntry.nutrients[nutrientTarget.nutrientId] = nutrientToJournal;
-                    }
-                    else {
-                        newJournalEntry.nutrients[nutrientTarget.nutrientId] = 0;
-                    }
-                }
+                populateJournalEntryNutrients(newJournalEntry, journalState.nutrientTargets, foodItemPopupState.selectedFoodItemOption.foodItem);
 
                 console.log(newJournalEntry);
 
