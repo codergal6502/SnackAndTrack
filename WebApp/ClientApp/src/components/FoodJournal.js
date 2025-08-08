@@ -13,8 +13,10 @@ const FoodJournal = () => {
     const defaultJournalEntry = { foodItem: null, unit: null, quantity: null, time: null, nutrients: { } };
 
     // backing objects
-    const [calendarState, setCalendarState] = useState({ date: new Date().toISOString().split('T')[0], journalEntries: [ {... defaultJournalEntry } ] })
+    const [journalState, setJournalState] = useState({ date: "", goalNutrientIds: [ ], journalEntries: [ {... defaultJournalEntry } ] })
     const [foodItemPopupState, setFoodItemPopupState] = useState({... defaultPopupState })
+
+    const doSetJournalState = (x) => { /*debugger;*/ setJournalState(x); }
 
     // lookups and select iptions
     const [unitDictionary, setUnitDictionary] = useState({});
@@ -24,18 +26,55 @@ const FoodJournal = () => {
     const [nutritionGoalSetOptions, setNutritionGoalSetOptions] = useState(null);
 
     useEffect(() => {
-        fetchNutritionalGoalSets();
-        fetchUnits();
+        fetchAndSetNutritionalGoalSets();
+        fetchAndSetUnits();
     }, []);
 
     useEffect(() => {
-        if (nutritionGoalSetDictionary && nutritionGoalSetOptions) {
-            const jsObj = getOldSearchParamsAsJsObject(searchParams);
-            setCalendarState(populateCalendarStateByParameters({...calendarState, parameters: jsObj}));
-        }
-    }, [nutritionGoalSetDictionary, nutritionGoalSetOptions])
+        const loadEntries = async () => {
+            if (nutritionGoalSetDictionary && nutritionGoalSetOptions && searchParams) {
+                const searchParamsJsObject = convertSearchParamsToJsObjct(searchParams);
+                const newJournalState = generateJournalStateUsingSearchParams({ ...journalState }, searchParamsJsObject);
+                const foodJournalEntries = await fetchFoodJournalEntries(newJournalState.date);
 
-    const fetchUnits = async () => {
+                newJournalState.journalEntries = [ ];
+
+                for (const foodJournalEntry of foodJournalEntries) {
+                    const journalEntry = {
+                        foodItem: foodJournalEntry.foodItem
+                      , unit: foodJournalEntry.unit
+                      , quantity: foodJournalEntry.quantity
+                      , time: foodJournalEntry.time
+                      , nutrients: { }
+                    };
+
+
+/*
+
+  "nutrients": {
+    "ef730af5-b989-4eb4-930e-9ad51d1e530a": 0,
+    "a94c0f7e-f495-42c9-85ed-717f62139680": 1556.050048828125,
+    "674fbe28-0638-476c-bcb1-31f16fc7fb36": 126.3349609375,
+    "a673d7c3-1acd-45b8-b294-8269afebef83": 44.111656188964844,
+    "e0458e7d-f734-4680-bfbd-a2630ffd4970": 756.7998046875
+  },
+
+*/
+
+
+                    newJournalState.journalEntries.push(journalEntry);
+                }
+
+                newJournalState.journalEntries.push({...defaultJournalEntry});
+
+                doSetJournalState(newJournalState);
+            }
+        };
+
+        loadEntries();
+    }, [searchParams, nutritionGoalSetDictionary, nutritionGoalSetOptions])
+
+    const fetchAndSetUnits = async () => {
         const query =  `
 {
   units
@@ -147,6 +186,72 @@ query GetFoodItems($qName: String!) {
         return foodItems;
     }
 
+    const fetchFoodJournalEntries = async (date) => {
+        const query = `
+query GetFoodJournalEntries($date: DateOnly) {
+  foodJournalEntries(
+    date: $date
+    page: 1
+    pageSize: 999
+    sortOrder: ASCENDING
+    sortBy: TIME
+  ) {
+    totalCount
+    totalPages
+    items {
+      id
+      date
+      time
+      quantity
+      foodItem {
+        id
+        name
+        foodItemNutrients {
+          quantity
+          nutrient {
+            id
+            name
+            group
+          }
+          unit {
+            id
+            name
+            type
+          }
+        }
+        servingSizes {
+          quantity
+          unit {
+            id
+            name
+            type
+            abbreviationCsv
+          }
+        }
+      }
+      unit {
+        id
+        name
+      }
+    }
+  }
+}
+        `;
+
+        const body = JSON.stringify({query, variables: { date }});
+        const response = await fetch('/graphql/query', {
+            method: 'POST'
+          , headers: {
+                'Content-Type': 'application/json'
+            }
+          , body: body
+        });
+        
+        const { data } = await response.json();
+
+        return data.foodJournalEntries.items;
+    }
+
     const handleFoodItemLookupInputChange = async (qName) => {
         if (!qName) {
             return;
@@ -200,7 +305,7 @@ query GetFoodItems($qName: String!) {
     }
 
     const editFoodOnClick = (index) => {
-        const journalEntry = calendarState.journalEntries[index];
+        const journalEntry = journalState.journalEntries[index];
         setFoodItemPopupState({
             ...defaultPopupState
           , visible: true
@@ -232,7 +337,7 @@ query GetFoodItems($qName: String!) {
               , unit: foodItemPopupState.selectedUnitOption.unit
               , quantity: foodItemPopupState.quantity
               , time: foodItemPopupState.time
-              , date: calendarState.date
+              , date: journalState.date
               , nutrients: { }
             }
 
@@ -280,7 +385,7 @@ query GetFoodItems($qName: String!) {
             newJournalEntry.journalEntryId = journalEntryId;
 
             if (response.ok) {
-                for (const nutrientTarget of calendarState.nutrientTargets) {
+                for (const nutrientTarget of journalState.nutrientTargets) {
                     const fi = foodItemPopupState.selectedFoodItemOption.foodItem;
                     const fin = fi.foodItemNutrients.filter(fin => fin.nutrient.id == nutrientTarget.nutrientId)[0];
                     const s = fi.servingSizes.filter(s => s.unit.type == newJournalEntry.unit.type)[0];
@@ -351,13 +456,13 @@ query GetFoodItems($qName: String!) {
 
                 console.log(newJournalEntry);
 
-                const addEmptyJournalEntry = foodItemPopupState.journalEntryIndex == calendarState.journalEntries.length - 1;
+                const addEmptyJournalEntry = foodItemPopupState.journalEntryIndex == journalState.journalEntries.length - 1;
 
-                const newJournalEntries = addEmptyJournalEntry ?  [...calendarState.journalEntries, {...defaultJournalEntry}] : [...calendarState.journalEntries];
+                const newJournalEntries = addEmptyJournalEntry ?  [...journalState.journalEntries, {...defaultJournalEntry}] : [...journalState.journalEntries];
                 newJournalEntries[foodItemPopupState.journalEntryIndex] = newJournalEntry;
-                const newCalendarState = { ...calendarState, journalEntries: newJournalEntries };
+                const newCalendarState = { ...journalState, journalEntries: newJournalEntries };
                 console.log(newCalendarState);
-                setCalendarState(newCalendarState);
+                doSetJournalState(newCalendarState);
                 setFoodItemPopupState({... defaultPopupState });
             }
         }
@@ -421,16 +526,22 @@ query GetFoodItems($qName: String!) {
         return hasErrors;
     }
 
-    const populateCalendarStateByParameters = (calendarState) => {
-        const calendarDate = new Date(calendarState.parameters?.calendarDate)
+    const generateJournalState = (journalState, date, goalNutrientIds) => {
+        if (isNaN(date)) { date = new Date().toISOString().split('T')[0]; }
+        else { date = new Date(date).toISOString().split('T')[0]; }
 
+        goalNutrientIds = goalNutrientIds ?? [ ];
         let nutrientTargets = [ ];
 
-        for (const ngsId of (calendarState.parameters?.nutritionGoals ?? [])) {
+        for (const ngsId of goalNutrientIds) {
             let nutritionGoal = nutritionGoalSetDictionary[ngsId];
 
+            if (new Date(nutritionGoal.endDate) < new Date(date) || new Date(date) < new Date(nutritionGoal.startDate)) {
+                continue;
+            }
+
             const nutritionGoalStartDate = new Date(nutritionGoal.startDate);
-            const dayDifferce = Math.ceil((calendarDate - nutritionGoalStartDate) / (1000 * 60 * 60 * 24));
+            const dayDifferce = Math.ceil((new Date(date) - nutritionGoalStartDate) / (1000 * 60 * 60 * 24));
 
             for (const nutrient of nutritionGoal.nutrients) {
                 const nutrientTarget = {
@@ -438,7 +549,7 @@ query GetFoodItems($qName: String!) {
                   , nutrientId: nutrient.nutrient.id
                   , unitId: nutrient.nutrient.defaultUnit.id
                   , unitName: nutrient.nutrient.defaultUnit.name
-                  , calendarDate
+                  , date: date
                   , nutritionGoalStartDate
                   , dayDifferce
                   , dayInPeriod: dayDifferce % nutritionGoal.period
@@ -451,12 +562,16 @@ query GetFoodItems($qName: String!) {
             }
         };
 
-        calendarState = {... calendarState, nutrientTargets: nutrientTargets };
+        journalState = {... journalState, date: date, nutrientTargets: nutrientTargets, goalNutrientIds: goalNutrientIds };
 
-        return calendarState;
+        return journalState;
     }
 
-    const getOldSearchParamsAsJsObject = (/** @type {URLSearchParams} */ searchParams) => {
+    const generateJournalStateUsingSearchParams = (journalState, searchParamsJsObject) => {
+        return generateJournalState(journalState, new Date(searchParamsJsObject.date), searchParamsJsObject.nutritionGoals);
+    }
+
+    const convertSearchParamsToJsObjct = (/** @type {URLSearchParams} */ searchParams) => {
         let oldSearchParamsAsJsObject = {};
         
         for (const key of Array.from(searchParams.keys())) {
@@ -465,23 +580,30 @@ query GetFoodItems($qName: String!) {
         return oldSearchParamsAsJsObject;
     }
 
-    const handleCalendarDateChange = (newCalendarDate) => {
-        let oldSearchParamsAsJsObject = getOldSearchParamsAsJsObject(searchParams);
-        
-        const newSearchParams = { ...oldSearchParamsAsJsObject, calendarDate: newCalendarDate };
+    const handleDateChange = (newDate) => {
+        // Search Parameter
+        let oldSearchParamsAsJsObject = convertSearchParamsToJsObjct(searchParams);        
+        const newSearchParams = { ...oldSearchParamsAsJsObject, date: newDate };
         setSearchParams(newSearchParams);
-        setCalendarState(populateCalendarStateByParameters({...calendarState, date: newCalendarDate, parameters: newSearchParams}));
+
+        // Journal State
+        const newJournalState = generateJournalState({ ...journalState }, newDate, oldSearchParamsAsJsObject.nutritionGoals );
+        doSetJournalState(newJournalState);
     }
 
     const handleGoalChange = (selectedOptions) => {
-        let oldSearchParamsAsJsObject = getOldSearchParamsAsJsObject(searchParams);
-        
-        const newSearchParams = { ...oldSearchParamsAsJsObject, nutritionGoals: selectedOptions.map(so => so.value) };
+        // Search Parameter
+        let oldSearchParamsAsJsObject = convertSearchParamsToJsObjct(searchParams);        
+        const goalIds = selectedOptions.map(so => so.value);
+        const newSearchParams = { ...oldSearchParamsAsJsObject, nutritionGoals: goalIds };
         setSearchParams(newSearchParams);
-        setCalendarState(populateCalendarStateByParameters({...calendarState, parameters: newSearchParams}));
+
+        // Journal State
+        const newJournalState = generateJournalState({ ...journalState }, oldSearchParamsAsJsObject.date, goalIds );
+        doSetJournalState(newJournalState);
     }
 
-    const fetchNutritionalGoalSets = async () => {
+    const fetchAndSetNutritionalGoalSets = async () => {
         const query = `
 {
   nutritionGoalSets {
@@ -538,8 +660,8 @@ query GetFoodItems($qName: String!) {
             <h1>Food Journal</h1>
             <div className="d-flex mb-3">
                 <div className="me-3">
-                    <label htmlFor="calendarDate" className="form-label">Start Date:</label>
-                    <input type="date" id="calendarDate" name="calendarDate" className='form-control' onChange={e => handleCalendarDateChange(e.target.value)} value={calendarState.date || ""} />
+                    <label htmlFor="date" className="form-label">Start Date:</label>
+                    <input type="date" id="date" name="date" className='form-control' onChange={e => handleDateChange(e.target.value)} value={journalState.date} />
                 </div>
                 <div className="me-3">
                     <label htmlFor="showGoals" className="form-label">Show Nutrition Goals:</label>
@@ -548,7 +670,7 @@ query GetFoodItems($qName: String!) {
                         isMulti={true}
                         isClearable={false}
                         onChange={s => handleGoalChange(s)}
-                        value={nutritionGoalSetOptions?.filter(opt => (calendarState.parameters?.nutritionGoals ?? []).indexOf(opt.value) >= 0)}
+                        value={nutritionGoalSetOptions?.filter(opt => (journalState.goalNutrientIds ?? []).indexOf(opt.value) >= 0)}
                     />
                 </div>
             </div>
@@ -557,21 +679,21 @@ query GetFoodItems($qName: String!) {
                 <thead>
                     <tr>
                         <th scope='row'>Nutrient</th>
-                        {calendarState.nutrientTargets?.map((nt, idx) => <th scope="col" key={idx} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{nt.nutrientName}</th>)}
+                        {journalState.nutrientTargets?.map((nt, idx) => <th scope="col" key={idx} style={{width: `${(2 + journalState.nutrientTargets?.count) * 100}%`}}>{nt.nutrientName}</th>)}
                     </tr>
                     <tr>
                         <th scope='row'>Target</th>
-                        {calendarState.nutrientTargets?.map((nt, idx) => <th scope="col" key={idx}>{nt.target.minimum}-{nt.target.maximum} {nt.unitName}</th>)}
+                        {journalState.nutrientTargets?.map((nt, idx) => <th scope="col" key={idx}>{nt.target?.minimum}-{nt.target.maximum} {nt.unitName}</th>)}
                     </tr>
                     <tr>
                         <th>Total</th>
-                        {calendarState.nutrientTargets?.map((nt, targetIndex) =>
-                            <td scope="col" key={targetIndex} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{Math.round(calendarState.journalEntries.map(je => je.nutrients[nt.nutrientId]).reduce((prev, curr) => prev + (curr ?? 0), 0))}</td>
+                        {journalState.nutrientTargets?.map((nt, targetIndex) =>
+                            <td scope="col" key={targetIndex} style={{width: `${(2 + journalState.nutrientTargets?.count) * 100}%`}}>{Math.round(journalState.journalEntries.map(je => je.nutrients[nt.nutrientId]).reduce((prev, curr) => prev + (curr ?? 0), 0))}</td>
                         )}
                     </tr>
                 </thead>
                 <tbody>
-                    {calendarState.journalEntries.map((je, entryIndex) => 
+                    {journalState.journalEntries.map((je, entryIndex) => 
                         <tr key={entryIndex}>
                             <td>
                                 <div className='input-group'>
@@ -579,8 +701,8 @@ query GetFoodItems($qName: String!) {
                                     <button className='btn btn-secondary' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
                                 </div>
                             </td>
-                            {calendarState.nutrientTargets?.map((nt, targetIndex) =>
-                                <td scope="col" key={targetIndex} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{isNaN(je.nutrients[nt.nutrientId]) ? "" : Math.round(je.nutrients[nt.nutrientId])}</td>
+                            {journalState.nutrientTargets?.map((nt, targetIndex) =>
+                                <td scope="col" key={targetIndex} style={{width: `${(2 + journalState.nutrientTargets?.count) * 100}%`}}>{isNaN(je.nutrients[nt.nutrientId]) ? "" : Math.round(je.nutrients[nt.nutrientId])}</td>
                             )}
                         </tr>
                     )}

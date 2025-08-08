@@ -7,8 +7,57 @@ using SnackAndTrack.DatabaseAccess.Entities;
 namespace SnackAndTrack.WebApp.GraphQl {
     public class AppQuery : ObjectGraphType {
         public AppQuery(SnackAndTrackDbContext dbContext) {
+            // Field<FoodJournalEntriesResponse>(nameof(SnackAndTrackDbContext.FoodJournalEntries)).Resolve(ctx => new FoodJournalEntriesResponse { });
+            Field<FoodJournalEntriesResponseGraphType>(nameof(SnackAndTrackDbContext.FoodJournalEntries))
+                .Argument<DateOnlyGraphType>(nameof(FoodJournalEntry.Date), $"Filter by {nameof(FoodJournalEntry.Date)}")
+                .Argument<IntGraphType>("page", "Page number for pagination")
+                .Argument<IntGraphType>("pageSize", "Number of items per page")
+                .Argument<EnumerationGraphType<SortOrder>>("sortOrder")
+                .Argument<EnumerationGraphType<FoodJournalEntriesortBy>>("sortBy")
+                .Resolve(context => {
+                    var dateFilter = context.GetArgument<DateOnly?>(nameof(FoodJournalEntry.Date));
+                    var page = context.GetArgument<int?>("page") ?? 1;
+                    var pageSize = context.GetArgument<int?>("pageSize") ?? 10;
 
-            Field<RecipesResponseType>(nameof(SnackAndTrackDbContext.Recipes))
+                    var query =
+                        dbContext
+                            .FoodJournalEntries
+                            .Include(fje => fje.FoodItem).ThenInclude(fi => fi.ServingSizes).ThenInclude(s => s.Unit)
+                            .Include(fje => fje.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
+                            .Include(fje => fje.FoodItem).ThenInclude(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Unit)
+                            .Include(fje => fje.Unit)
+                            .AsQueryable();
+
+                    if (null != dateFilter) {
+                        query = query.Where(fje => fje.Date == dateFilter);
+                    }
+
+                    bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
+
+                    switch (context.GetArgument<FoodJournalEntriesortBy?>("sortBy") ?? FoodJournalEntriesortBy.Time) {
+                        case FoodJournalEntriesortBy.Time:
+                        default:
+                            query = ascending ? query.OrderBy(j => j.Time).ThenBy(j => j.Id) : query.OrderByDescending(j => j.Time).ThenByDescending(t => t.Id);
+                            break;
+                        case FoodJournalEntriesortBy.FoodItem:
+                            query = ascending ? query.OrderBy(j => j.FoodItem.Name).ThenBy(j => j.Id) : query.OrderByDescending(j => j.FoodItem.Name).ThenByDescending(t => t.Id);
+                            break;
+                    }
+
+                    var totalCount = query.Count();
+                    var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+                    var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+                    return new FoodJournalEntriesResponse
+                    {
+                        TotalCount = totalCount,
+                        Items = items.Result,
+                        TotalPages = totalPages,
+                    };
+                });
+
+            Field<RecipesResponseGraphType>(nameof(SnackAndTrackDbContext.Recipes))
                 .Argument<StringGraphType>(nameof(Recipe.Name), $"Filter by {nameof(Recipe.Name)}")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
@@ -54,7 +103,7 @@ namespace SnackAndTrack.WebApp.GraphQl {
                     };
                 });
 
-            Field<NutritionGoalSetsResponseType>(nameof(SnackAndTrackDbContext.NutritionGoalSets))
+            Field<NutritionGoalSetsResponseGraphType>(nameof(SnackAndTrackDbContext.NutritionGoalSets))
                 .Argument<StringGraphType>(nameof(NutritionGoalSet.Name), $"Filter by {nameof(NutritionGoalSet.Name)}")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
@@ -100,7 +149,7 @@ namespace SnackAndTrack.WebApp.GraphQl {
                     };
                 });
 
-            Field<FoodItemsResponseType>(nameof(SnackAndTrackDbContext.FoodItems))
+            Field<FoodItemsResponseGraphType>(nameof(SnackAndTrackDbContext.FoodItems))
                 .Argument<StringGraphType>(nameof(FoodItem.Name), $"Filter by {nameof(FoodItem.Name).ToLower()}")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
