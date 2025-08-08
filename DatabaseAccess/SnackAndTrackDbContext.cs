@@ -24,6 +24,6 @@ namespace SnackAndTrack.DatabaseAccess {
         public required DbSet<NutritionGoalSetDayMode> NutritionGoalSetDayModes { get; set; }
         public required DbSet<NutritionGoalSetNutrient> NutritionGoalSetNutrients { get; set; }
         public required DbSet<NutritionGoalSetNutrientTarget> NutritionGoalSetNutrientTargets { get; set; }
-
+        public required DbSet<FoodJournalEntry> FoodJournalEntries { get; set; }
     }
 }

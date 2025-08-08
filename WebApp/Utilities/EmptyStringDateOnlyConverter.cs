@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace SnackAndTrack.WebApp.Utilities {
 
     // Based on https://stackoverflow.com/a/77411561.
-    public class EmptyStringDateConverter : JsonConverter<DateOnly?> {
+    public class EmptyStringDateOnlyConverter : JsonConverter<DateOnly?> {
         public override DateOnly? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
             if (reader.TokenType == JsonTokenType.String) {
                 var readString = reader.GetString();

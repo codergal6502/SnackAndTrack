@@ -9,11 +9,11 @@ const FoodJournal = () => {
     // make it so users can bookmark and navigate
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const defaultPopupState = { visible: false, quantity: '', foodItemOptions: [ ], selectedFoodItemOption: null, unitOptions: [ ], selectedUnitOption: null, "-show-errors": false };
+    const defaultPopupState = { visible: false, quantity: '', journalEntryId: '', foodItemOptions: [ ], selectedFoodItemOption: null, unitOptions: [ ], selectedUnitOption: null, "-show-errors": false };
     const defaultJournalEntry = { foodItem: null, unit: null, quantity: null, time: null, nutrients: { } };
 
     // backing objects
-    const [calendarState, setCalendarState] = useState({ journalEntries: [ {... defaultJournalEntry } ] })
+    const [calendarState, setCalendarState] = useState({ date: new Date().toISOString().split('T')[0], journalEntries: [ {... defaultJournalEntry } ] })
     const [foodItemPopupState, setFoodItemPopupState] = useState({... defaultPopupState })
 
     // lookups and select iptions
@@ -193,15 +193,23 @@ query GetFoodItems($qName: String!) {
         setFoodItemPopupState(newFoodItemPopupState);
     }
 
+    const handleFoodItemTimeChange = (time) => {
+        const newFoodItemPopupState = {... foodItemPopupState, time: time };
+        populateErrorsInFoodItemPopup(newFoodItemPopupState);
+        setFoodItemPopupState(newFoodItemPopupState);
+    }
+
     const editFoodOnClick = (index) => {
         const journalEntry = calendarState.journalEntries[index];
         setFoodItemPopupState({
             ...defaultPopupState
           , visible: true
+          , journalEntryId: journalEntry.journalEntryId
           , journalEntryIndex: index
           , selectedFoodItemOption: ! journalEntry.foodItem ? null : { label: journalEntry.foodItem.name, value: journalEntry.foodItem.id, foodItem: journalEntry.foodItem }
           , selectedUnitOption: ! journalEntry.unit ? null : { label: journalEntry.unit.name, value: journalEntry.unit.id, unit: journalEntry.unit }
-          , quantity: journalEntry.quantity 
+          , quantity: journalEntry.quantity
+          , time: journalEntry.time
         });
     }
     
@@ -213,7 +221,7 @@ query GetFoodItems($qName: String!) {
         setFoodItemPopupState({...foodItemPopupState, visible: false});
     }
     
-    const handleModalSaveButtonClick = (e) => {
+    const handleModalSaveButtonClick = async (e) => {
         let newFoodItemPopupState = {...foodItemPopupState, "-show-errors": true};
         if (populateErrorsInFoodItemPopup(newFoodItemPopupState)) {
             setFoodItemPopupState(newFoodItemPopupState);
@@ -223,90 +231,153 @@ query GetFoodItems($qName: String!) {
                 foodItem: foodItemPopupState.selectedFoodItemOption.foodItem
               , unit: foodItemPopupState.selectedUnitOption.unit
               , quantity: foodItemPopupState.quantity
-              , time: null
+              , time: foodItemPopupState.time
+              , date: calendarState.date
               , nutrients: { }
             }
 
-            for (const nutrientTarget of calendarState.nutrientTargets) {
-                const fi = foodItemPopupState.selectedFoodItemOption.foodItem;
-                const fin = fi.foodItemNutrients.filter(fin => fin.nutrient.id == nutrientTarget.nutrientId)[0];
-                const s = fi.servingSizes.filter(s => s.unit.type == newJournalEntry.unit.type)[0];
-                
-                if (!s) {
-                    // TODO: log error somehow!
+            const postPutObject = {
+                id: foodItemPopupState.journalEntryId
+              , foodItemId: newJournalEntry.foodItem.id
+              , unitId: newJournalEntry.unit.id
+              , quantity: newJournalEntry.quantity
+              , time: newJournalEntry.time
+              , date: newJournalEntry.date
+            };
+
+            /** @type Response */ let response;
+            let responseOk;
+            let journalEntryId = null;
+            if (foodItemPopupState.journalEntryId) {
+                response = await fetch(
+                    `/api/journalentries/${foodItemPopupState.journalEntryId}`
+                  , {
+                        method: 'PUT'
+                      , headers: { 'Content-Type': 'application/json' }
+                      , body: JSON.stringify(postPutObject)
+                    }
+                );
+                responseOk = response.ok;
+                if (responseOk) {
+                    journalEntryId = foodItemPopupState.journalEntryId;
                 }
-                else if (fin) {
-                    // A little dimensional analysis. We have food item quantity. We want nutrient quantity.
-                    
-                    // jFiQ is the food item quantity in the journal
-                    // jFiU is the food item unit in the journal
-                    // sFiU is the food item unit in the serving
-                    // sFiQ is the food item quantity per serving
-                    // sNQ  is the nutrient quantity per serving
-                    // sNU  is the nutrient unit in the serving
-                    // jNU  is the nutrient unit in the journal
-                    const jFiQ  = newJournalEntry.quantity;
-                    const jFiU  = newJournalEntry.unit.id;
-                    const sFiU  = s.unit.id;
-                    const sFiQ  = s.quantity;
-                    const sNQ   = fin.quantity;
-                    const sNU   = fin.unit.id;
-                    const jNU   = nutrientTarget.unitId;
-
-                    // jFiQ (jFiU)   (sFiU)       1         sNQ (sNU)   (jNU)
-                    // ----------- • ------ • ----------- • --------- • -----
-                    //               (jFiU)   sFiQ (sFiU)               (sNU)
-                    //                 A          A            A           A          
-                    //                 |          |            |           
-                    //                 |          |            nutrient logged
-                    //                 |          number of servings
-                    //                 probably 1
-                    
-                    let sjFiURatio;
-                    if(jFiU == sFiU) {
-                        sjFiURatio = 1;
+            }
+            else {
+                response = await fetch(
+                    `/api/journalentries/`
+                  , {
+                        method: 'POST'
+                      , headers: { 'Content-Type': 'application/json' }
+                      , body: JSON.stringify(postPutObject)
                     }
-                    else {
-                        let fromUnit = unitDictionary[jFiU];
-                        let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == sFiU)[0];
-                        sjFiURatio = conversion.ratio;
-                    };
-
-                    let jsNURatio;
-                    if (jNU == sNU) {
-                        jsNURatio = 1;
-                    }
-                    else {
-                        jsNURatio = 1;
-                        let fromUnit = unitDictionary[sNU];
-                        let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == jNU)[0];
-                        jsNURatio = conversion.ratio;
-                    }
-
-                    let nutrientToJournal = jFiQ;
-                    nutrientToJournal *= sjFiURatio;
-                    nutrientToJournal /= sFiQ;
-                    nutrientToJournal *= sNQ;
-                    nutrientToJournal *= jsNURatio;
-
-                    newJournalEntry.nutrients[nutrientTarget.nutrientId] = nutrientToJournal;
-                }
-                else {
-                    newJournalEntry.nutrients[nutrientTarget.nutrientId] = 0;
+                );
+                responseOk = response.ok;
+                if (responseOk) {
+                    journalEntryId = (await response.json()).id;
                 }
             }
 
-            console.log(newJournalEntry);
+            newJournalEntry.journalEntryId = journalEntryId;
 
-            const addEmptyJournalEntry = foodItemPopupState.journalEntryIndex == calendarState.journalEntries.length - 1;
+            if (response.ok) {
+                for (const nutrientTarget of calendarState.nutrientTargets) {
+                    const fi = foodItemPopupState.selectedFoodItemOption.foodItem;
+                    const fin = fi.foodItemNutrients.filter(fin => fin.nutrient.id == nutrientTarget.nutrientId)[0];
+                    const s = fi.servingSizes.filter(s => s.unit.type == newJournalEntry.unit.type)[0];
+                    
+                    if (!s) {
+                        // TODO: log error somehow!
+                    }
+                    else if (fin) {
+                        // A little dimensional analysis. We have food item quantity. We want nutrient quantity.
+                        
+                        // jFiQ is the food item quantity in the journal
+                        // jFiU is the food item unit in the journal
+                        // sFiU is the food item unit in the serving
+                        // sFiQ is the food item quantity per serving
+                        // sNQ  is the nutrient quantity per serving
+                        // sNU  is the nutrient unit in the serving
+                        // jNU  is the nutrient unit in the journal
+                        const jFiQ  = newJournalEntry.quantity;
+                        const jFiU  = newJournalEntry.unit.id;
+                        const sFiU  = s.unit.id;
+                        const sFiQ  = s.quantity;
+                        const sNQ   = fin.quantity;
+                        const sNU   = fin.unit.id;
+                        const jNU   = nutrientTarget.unitId;
 
-            const newJournalEntries = addEmptyJournalEntry ?  [...calendarState.journalEntries, {...defaultJournalEntry}] : [...calendarState.journalEntries];
-            newJournalEntries[foodItemPopupState.journalEntryIndex] = newJournalEntry;
-            const newCalendarState = { ...calendarState, journalEntries: newJournalEntries };
-            console.log(newCalendarState);
-            setCalendarState(newCalendarState);
-            setFoodItemPopupState({... defaultPopupState });
+                        // jFiQ (jFiU)   (sFiU)       1         sNQ (sNU)   (jNU)
+                        // ----------- • ------ • ----------- • --------- • -----
+                        //               (jFiU)   sFiQ (sFiU)               (sNU)
+                        //                 A          A            A           A          
+                        //                 |          |            |           
+                        //                 |          |            nutrient logged
+                        //                 |          number of servings
+                        //                 probably 1
+                        
+                        let sjFiURatio;
+                        if(jFiU == sFiU) {
+                            sjFiURatio = 1;
+                        }
+                        else {
+                            let fromUnit = unitDictionary[jFiU];
+                            let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == sFiU)[0];
+                            sjFiURatio = conversion.ratio;
+                        };
+
+                        let jsNURatio;
+                        if (jNU == sNU) {
+                            jsNURatio = 1;
+                        }
+                        else {
+                            jsNURatio = 1;
+                            let fromUnit = unitDictionary[sNU];
+                            let conversion = fromUnit.fromUnitConversions.filter(c => c.toUnit.id == jNU)[0];
+                            jsNURatio = conversion.ratio;
+                        }
+
+                        let nutrientToJournal = jFiQ;
+                        nutrientToJournal *= sjFiURatio;
+                        nutrientToJournal /= sFiQ;
+                        nutrientToJournal *= sNQ;
+                        nutrientToJournal *= jsNURatio;
+
+                        newJournalEntry.nutrients[nutrientTarget.nutrientId] = nutrientToJournal;
+                    }
+                    else {
+                        newJournalEntry.nutrients[nutrientTarget.nutrientId] = 0;
+                    }
+                }
+
+                console.log(newJournalEntry);
+
+                const addEmptyJournalEntry = foodItemPopupState.journalEntryIndex == calendarState.journalEntries.length - 1;
+
+                const newJournalEntries = addEmptyJournalEntry ?  [...calendarState.journalEntries, {...defaultJournalEntry}] : [...calendarState.journalEntries];
+                newJournalEntries[foodItemPopupState.journalEntryIndex] = newJournalEntry;
+                const newCalendarState = { ...calendarState, journalEntries: newJournalEntries };
+                console.log(newCalendarState);
+                setCalendarState(newCalendarState);
+                setFoodItemPopupState({... defaultPopupState });
+            }
         }
+    }
+
+    const handleModalDeleteButtonClick = async (e) => {
+        if (foodItemPopupState.journalEntryId) {
+            const response = await fetch(
+                `/api/journalentries/${foodItemPopupState.journalEntryId}`
+              , {
+                    method: 'DELETE'
+                  , headers: { 'Content-Type': 'application/json' }
+                }
+            );
+
+            if (! response.ok) {
+                // TODO: log somehow?
+            }
+        }
+        setFoodItemPopupState({...foodItemPopupState, visible: false});
     }
 
     const populateErrorsInFoodItemPopup = (newFoodItemPopupState) => {
@@ -399,7 +470,7 @@ query GetFoodItems($qName: String!) {
         
         const newSearchParams = { ...oldSearchParamsAsJsObject, calendarDate: newCalendarDate };
         setSearchParams(newSearchParams);
-        setCalendarState(populateCalendarStateByParameters({...calendarState, parameters: newSearchParams}));
+        setCalendarState(populateCalendarStateByParameters({...calendarState, date: newCalendarDate, parameters: newSearchParams}));
     }
 
     const handleGoalChange = (selectedOptions) => {
@@ -468,7 +539,7 @@ query GetFoodItems($qName: String!) {
             <div className="d-flex mb-3">
                 <div className="me-3">
                     <label htmlFor="calendarDate" className="form-label">Start Date:</label>
-                    <input type="date" id="calendarDate" name="calendarDate" className='form-control' onChange={e => handleCalendarDateChange(e.target.value)} value={calendarState.parameters?.calendarDate || ""} />
+                    <input type="date" id="calendarDate" name="calendarDate" className='form-control' onChange={e => handleCalendarDateChange(e.target.value)} value={calendarState.date || ""} />
                 </div>
                 <div className="me-3">
                     <label htmlFor="showGoals" className="form-label">Show Nutrition Goals:</label>
@@ -479,10 +550,6 @@ query GetFoodItems($qName: String!) {
                         onChange={s => handleGoalChange(s)}
                         value={nutritionGoalSetOptions?.filter(opt => (calendarState.parameters?.nutritionGoals ?? []).indexOf(opt.value) >= 0)}
                     />
-                </div>
-                <div className="me-3">
-                    <label className="form-label">&nbsp;</label>
-                    <button type="button" className='btn btn-info form-control' onClick={() => {debugger; console.log(calendarState);}}>refresh</button>
                 </div>
             </div>
             
@@ -495,6 +562,12 @@ query GetFoodItems($qName: String!) {
                     <tr>
                         <th scope='row'>Target</th>
                         {calendarState.nutrientTargets?.map((nt, idx) => <th scope="col" key={idx}>{nt.target.minimum}-{nt.target.maximum} {nt.unitName}</th>)}
+                    </tr>
+                    <tr>
+                        <th>Total</th>
+                        {calendarState.nutrientTargets?.map((nt, targetIndex) =>
+                            <td scope="col" key={targetIndex} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{Math.round(calendarState.journalEntries.map(je => je.nutrients[nt.nutrientId]).reduce((prev, curr) => prev + (curr ?? 0), 0))}</td>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
@@ -512,14 +585,6 @@ query GetFoodItems($qName: String!) {
                         </tr>
                     )}
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <th>Total</th>
-                        {calendarState.nutrientTargets?.map((nt, targetIndex) =>
-                            <td scope="col" key={targetIndex} style={{width: `${(2 + calendarState.nutrientTargets?.count) * 100}%`}}>{Math.round(calendarState.journalEntries.map(je => je.nutrients[nt.nutrientId]).reduce((prev, curr) => prev + (curr ?? 0), 0))}</td>
-                        )}
-                    </tr>
-                </tfoot>
             </table>
 
             <Modal show={foodItemPopupState.visible} onShow={handleModalOpen} onHide={handleModalCancelClose} centered>
@@ -559,11 +624,22 @@ query GetFoodItems($qName: String!) {
                             placeholder={foodItemPopupState?.selectedUnitOption?.unit?.name}
                         />
                         {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-quantity"]}</div>))}
+                        <label htmlFor="time" className='form-label'>Time</label>
+                        <input
+                            id="time"
+                            type="time"
+                            onChange={(e) => { handleFoodItemTimeChange(e.target.value) }}
+                            value={foodItemPopupState.time ?? ""}
+                            className={`form-control ${(foodItemPopupState["-show-errors"] && foodItemPopupState["-error-time"]) ? "is-invalid" : ""}`}
+                            placeholder={foodItemPopupState?.selectedUnitOption?.unit?.name}
+                        />
+                        {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-time"]}</div>))}
                     </div>
                 </Modal.Body>
                 <Modal.Footer>
-                    <button type='button' className='btn btn-primary' onClick={handleModalSaveButtonClick}>Accept</button>
-                    <button type='button' className='btn btn-Secondary' onClick={handleModalCancelClose}>Cancel</button>
+                    <button type='button' className='btn btn-primary' onClick={e => { handleModalSaveButtonClick(); }}>Save</button>
+                    <button type='button' className='btn btn-caution' onClick={e => { handleModalDeleteButtonClick(); }}>Delete</button>
+                    <button type='button' className='btn btn-secondary' onClick={e => { handleModalCancelClose(); }}>Cancel</button>
                 </Modal.Footer>
             </Modal>
         </div>
