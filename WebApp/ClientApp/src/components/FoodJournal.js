@@ -19,7 +19,7 @@ const FoodJournal = () => {
     const doSetJournalState = (x) => { /*debugger;*/ setJournalState(x); }
 
     // lookups and select iptions
-    const [unitDictionary, setUnitDictionary] = useState({});
+    const [unitDictionary, setUnitDictionary] = useState(null);
     const [unitOptions, setUnitOptions] = useState([]); // Empty 2D-array
 
     const [nutritionGoalSetDictionary, setNutritionGoalSetDictionary] = useState();
@@ -472,7 +472,11 @@ query GetFoodJournalEntries($date: DateOnly) {
                 }
             );
 
-            if (! response.ok) {
+            if (response.ok) {
+                const journalEntries = journalState.journalEntries.filter((_, index) => foodItemPopupState.journalEntryIndex != index)
+                doSetJournalState({... journalState, journalEntries: journalEntries });
+            }
+            else {
                 // TODO: log somehow?
             }
         }
@@ -754,7 +758,7 @@ query GetFoodJournalEntries($date: DateOnly) {
                 </Modal.Body>
                 <Modal.Footer>
                     <button type='button' className='btn btn-primary' onClick={e => { handleModalSaveButtonClick(); }}>Save</button>
-                    <button type='button' className='btn btn-caution' onClick={e => { handleModalDeleteButtonClick(); }}>Delete</button>
+                    <button type='button' className='btn btn-danger' onClick={e => { handleModalDeleteButtonClick(); }}>Delete</button>
                     <button type='button' className='btn btn-secondary' onClick={e => { handleModalCancelClose(); }}>Cancel</button>
                 </Modal.Footer>
             </Modal>
