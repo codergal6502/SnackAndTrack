@@ -151,6 +151,16 @@ namespace SnackAndTrack.WebApp.GraphQl {
                         TotalPages = totalPages,
                     };
                 });
+
+            Field<ListGraphType<UnitGraphType>>(nameof(SnackAndTrackDbContext.Units))
+                .Resolve(context => {
+                   var query =
+                        dbContext
+                            .Units
+                            .Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
+                            .AsQueryable();
+                    return query.ToList();
+                });
         }
     }
 }
