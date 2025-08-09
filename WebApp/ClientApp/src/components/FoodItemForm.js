@@ -6,11 +6,10 @@ import Select from 'react-select';
 const FoodItemForm = () => {
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
 
-    const [unitDictionary, setUnitDictionary] = useState({});
-    const [servingSizeUnitOptions, setServingSizeUnitOptions] = useState([]); // Empty 2D-array
-    const [nutrientOptions, setNutrientOptions] = useState([]);
+    const [unitDictionary, setUnitDictionary] = useState();
+    const [unitOptions, setUnitOptions] = useState(); // Empty 2D-array
     const [nutrientDictionary, setNutrientDictionary] = useState({});
-    const [nutrientUnitOptions, setNutrientUnitOptions] = useState([]); // Empty 2D-array
+    const [nutrientOptions, setNutrientOptions] = useState([]);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -21,10 +20,10 @@ const FoodItemForm = () => {
     }, []);
 
     useEffect(() => {
-        if (Object.keys(unitDictionary).length > 0 && id) {
+        if (unitDictionary && unitOptions && id) {
             fetchFoodItem(id);
         }
-    }, [unitDictionary, id]);
+    }, [unitDictionary, unitOptions, id]);
 
     const validateAndSetFoodItem = (foodItem) => {
         const newFoodItem = { ... foodItem, "-show-errors": true };
@@ -195,7 +194,7 @@ const FoodItemForm = () => {
                         }))
                     }));
 
-            setServingSizeUnitOptions(groupedOptions);
+            setUnitOptions(groupedOptions);
         }
         catch (error) {
             console.error(`Request to ${url} failed.`, error)
@@ -208,12 +207,9 @@ const FoodItemForm = () => {
         setFoodItem(data);
 
         // todo: what is this for?
-        data.nutrients.forEach(element => {
-            
+        data.nutrients.forEach(n => {
+            n.unitOptions = Object.values(unitDictionary).filter(u => u.type == unitDictionary[n.unitId].type).map(u => ({ label: u.name, value: u.id }));
         });
-
-        const initialNutrientUnitOptions = data.nutrients.map((n) => Object.values(unitDictionary).filter(u => u.type == unitDictionary[n.unitId].type).map(u => ({ label: u.name, value: u.id })));
-        setNutrientUnitOptions(initialNutrientUnitOptions);
     };
 
     const handleChange = (e) => {
@@ -283,21 +279,14 @@ const FoodItemForm = () => {
             const selectedNutrient = nutrientDictionary[selectedOption.value];
             const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
 
-            const newUnitOptions = [...nutrientUnitOptions];
-            newUnitOptions[index] = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
-            setNutrientUnitOptions(newUnitOptions);
-
             const newNutrients = [ ...foodItem.nutrients];
             newNutrients[index].nutrientId = selectedOption?.value;
             newNutrients[index].unitId = selectedNutrient.defaultUnit.id;
+            newNutrients[index].unitOptions = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
             const newFoodItem = { ...foodItem, nutrients: newNutrients };
             setFoodItem(newFoodItem);
         }
         else {
-            const newUnitOptions = [...nutrientUnitOptions];
-            newUnitOptions[index] = [];
-            setNutrientUnitOptions(newUnitOptions);
-
             const newNutrients = [ ...foodItem.nutrients];
             newNutrients[index].nutrientId = null;
             newNutrients[index].unitId = null;
@@ -314,7 +303,6 @@ const FoodItemForm = () => {
     };
 
     const addNutrient = () => {
-        setNutrientUnitOptions([ ...nutrientUnitOptions, [ ] ]);
         setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, nutrientId: null, unitId: null }] });
     };
 
@@ -329,11 +317,6 @@ const FoodItemForm = () => {
             const nutrientsAfter  = foodItem.nutrients.slice(index + 1);
             const newNutrients = [...nutrientsBefore, foodItem.nutrients[index], foodItem.nutrients[index - 1], ...nutrientsAfter];
             setFoodItem({ ...foodItem, nutrients: newNutrients});
-
-            const nutrientUnitOptionsBefore = nutrientUnitOptions.slice(0, index - 1);
-            const nutrientUnitOptionsAfter = nutrientUnitOptions.slice(index + 1);
-            const newNutrientUnitOptions = [...nutrientUnitOptionsBefore, nutrientUnitOptions[index], nutrientUnitOptions[index-1], ...nutrientUnitOptionsAfter];
-            setNutrientUnitOptions(newNutrientUnitOptions);
         }
     }
 
@@ -343,11 +326,6 @@ const FoodItemForm = () => {
             const nutrientsAfter  = foodItem.nutrients.slice(index + 2);
             const nutrients = [...nutrientsBefore, foodItem.nutrients[index + 1], foodItem.nutrients[index], ...nutrientsAfter];
             setFoodItem({ ...foodItem, nutrients: nutrients});
-
-            const nutrientUnitOptionsBefore = nutrientUnitOptions.slice(0, index);
-            const nutrientUnitOptionsAfter = nutrientUnitOptions.slice(index + 2);
-            const newNutrientUnitOptions = [...nutrientUnitOptionsBefore, nutrientUnitOptions[index + 1], nutrientUnitOptions[index], ...nutrientUnitOptionsAfter];
-            setNutrientUnitOptions(newNutrientUnitOptions);
         }
     }
 
@@ -372,23 +350,27 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
 
         if (!hasErrors) {
             if (id) {
-                await fetch(`/api/fooditems/${id}`, {
+                const response = await fetch(`/api/fooditems/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(foodItem),
                 });
+                
+                navigate(`/FoodItemForm/${id}`);
             } else {
-                await fetch('/api/fooditems', {
+                const response = await fetch('/api/fooditems', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(foodItem),
                 });
+
+                const json = await response.json();
+                navigate(`/FoodItemForm/${json.id}`);
             }
-            navigate('/FoodItemList');
         }
     };
 
@@ -397,7 +379,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
         navigate(e.currentTarget.pathname);
     };
 
-    return (
+    return unitOptions && nutrientOptions && (
         <>
         {(foodItem.generatedFromId) && ( <div>This food item was generated from the recipe for <a href={`/recipeform/${foodItem.generatedFromId}`} onClick={(e) => handleAnchorClick(e)}>{foodItem.generatedFromName}</a> and cannot be edited.</div> )}
         <form autoComplete="off" onSubmit={handleSubmit}>
@@ -455,12 +437,12 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                         const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(u => u.unitId).filter(typeId => typeId);
                                                         const otherSelectedTypes = otherSelections.map(unitId => unitDictionary[unitId].type);
 
-                                                        let ret = servingSizeUnitOptions.filter(grp => otherSelectedTypes.indexOf(grp.label) < 0);
+                                                        let ret = unitOptions.filter(grp => otherSelectedTypes.indexOf(grp.label) < 0);
                                                         return ret;
                                                     })()}
                                                     isClearable
                                                     onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
-                                                    value={servingSizeUnitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
+                                                    value={unitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
                                                     classNamePrefix="react-select"
                                                     className={`${foodItem["-show-errors"] && servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
                                                     placeholder="unit"
@@ -511,7 +493,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     ))}
                 </tbody>
             </table>
-            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= servingSizeUnitOptions.length} onClick={addServingSize}>Add Serving Size</button>)}
+            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= unitOptions.length} onClick={addServingSize}>Add Serving Size</button>)}
 
 
             <h5>Nutrition Information per Serving</h5>
@@ -593,12 +575,12 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                 <Select
                                                     id={`foodItem-nutrient-${index}`}
                                                     name="unitId"
-                                                    options={nutrientUnitOptions[index]}
+                                                    options={nutrient.unitOptions}
                                                     onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
                                                     isClearable
                                                     classNamePrefix="react-select"
                                                     className={`${foodItem["-show-errors"] && nutrient["-error-unitId"] ? 'is-invalid' : ''}`}
-                                                    value={nutrientUnitOptions[index]?.find(option => option.value === nutrient.unitId) || null}
+                                                    value={nutrient?.unitOptions?.find(option => option.value === nutrient.unitId) || null}
                                                 />
                                                     {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
                                             </div>
