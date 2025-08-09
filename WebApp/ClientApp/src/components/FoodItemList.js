@@ -1,56 +1,82 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import Select from 'react-select';
 
 const FoodItemList = () => {
     const [foodItems, setFoodItems] = useState([]);
 
-    const [page, setPage] = useState(1);
-    const [pageCount, setPageCount] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [sortOrder, setSortOrder] = useState("ASCENDING");
-    const [sortBy, setSortBy] = useState("NAME")
+    const [nameInput, setNameInput] = useState("");
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParamObject, setSearchParamObject] = useState();
+    const [pageCount, setPageCount] = useState(null);
 
     useEffect(() => {
-        fetchFoodItems();
-    }, []);
+        if (searchParamObject) {
+            fetchFoodItems();
+        }
+    }, [searchParamObject]);
+
+    useEffect(() => {
+        if (searchParams) {
+            var newSearchParamObject = Object.fromEntries(searchParams);
+            var defaultSearchParamObject = { name: "", page: 1, pageSize: 20, sortOrder: "ASCENDING", sortBy: "NAME" };
+            newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
+            setSearchParamObject(newSearchParamObject);
+        }
+    }, [searchParams]);
 
     const sortByOptions = [ { label: "Name", value: "NAME" }, { label: "Brand", value: "BRAND" } ];
     const sortOrderOptions = [ { label: "Ascending", value: "ASCENDING" }, { label: "Descending", value: "DESCENDING" } ];
 
     const fetchFoodItems = async () => {
         const query = `
-query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!) {
-    foodItems(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
-        totalCount
-        totalPages
-        items {
-            id
-            name
-            brand
-            servingSizes {
-                id
-                quantity
-                displayOrder
-                unit {
-                    id
-                    abbreviationCsv
-                    name
-                    type
-                }
-            }
+query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!, $name: String) {
+  foodItems(
+    page: $page
+    pageSize: $pageSize
+    sortOrder: $sortOrder
+    sortBy: $sortBy
+    name: $name
+  ) {
+    totalCount
+    totalPages
+    items {
+      id
+      name
+      brand
+      servingSizes {
+        id
+        quantity
+        displayOrder
+        unit {
+          id
+          abbreviationCsv
+          name
+          type
         }
+      }
     }
+  }
 }
         `;
-
+        setSearchParams({
+            page: parseInt(searchParamObject.page)
+          , pageSize: parseInt(searchParamObject.pageSize)
+          , sortOrder: searchParamObject.sortOrder
+          , sortBy: searchParamObject.sortBy
+          , name: searchParamObject.name
+        });
+        setNameInput(searchParamObject.name);
         const body=JSON.stringify({
             query
           , variables: {
-                page: parseInt(page)
-              , pageSize: parseInt(pageSize)
-              , sortOrder
-              , sortBy
+                page: parseInt(searchParamObject.page)
+              , pageSize: parseInt(searchParamObject.pageSize)
+              , sortOrder: searchParamObject.sortOrder
+              , sortBy: searchParamObject.sortBy
+              , name: searchParamObject.name
             },
         });
         const response = await fetch('/graphql/query', {
@@ -66,20 +92,44 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
         setFoodItems(data.foodItems.items); 
     };
 
-    return (
-        <div>
+    const searchTextTimeoutIdList = useRef([ ]);
+
+    const debouncedSearchTextChange = async (q) => {
+        console.log("fetch", q);
+        setSearchParamObject({... searchParamObject, name: q});
+    }
+
+    const searchTextChange = async(q) => {
+        clearTimeout(searchTextTimeoutIdList.current.shift());
+        searchTextTimeoutIdList.current.push(setTimeout((q2) => { debouncedSearchTextChange(q2); }, 100, q));
+
+        setNameInput(q);
+    }
+
+    return searchParamObject && (
+        <form autoComplete='Off'>
             <h1>Food Items</h1>
             <Link to="/fooditemform" className="btn btn-primary mb-3">Add Food Item</Link>
 
             <div className="d-flex mb-3">
+                <div className="me-3">
+                    <label htmlFor="search" className="form-label">Search:</label>
+                    <input
+                        id="search"
+                        name="search"
+                        value={nameInput}
+                        className='form-control'
+                        onChange={(e) => { searchTextChange(e.target.value); }}
+                    />
+                </div>
                 <div className="me-3">
                     <label htmlFor="page" className="form-label">Page:</label>
                     <Select
                         id="page"
                         name="page"
                         options={[...Array(pageCount).keys().map(i => ({ label: i+1, value: i+1 }))]}
-                        value={{ label: page, value: page}}
-                        onChange={selectedOption => setPage(selectedOption.value)}
+                        value={{ label: searchParamObject.page, value: searchParamObject.page}}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, page: parseInt(selectedOption.value)})}
                     />
                 </div>
                 <div className="me-3">
@@ -88,8 +138,8 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         id="page-size"
                         name="page-size"
                         options={[5, 10, 20, 50, 100].map(i => ({ label: i, value: i }))}
-                        value={{ label: pageSize, value: pageSize}}
-                        onChange={selectedOption => setPageSize(selectedOption.value)}
+                        value={{ label: searchParamObject.pageSize, value: searchParamObject.pageSize}}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, pageSize: parseInt(selectedOption.value)})}
                     />
                 </div>
                 <div className="me-3">
@@ -98,8 +148,8 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         id="sort-by"
                         name="sort-by"
                         options={sortByOptions}
-                        value={sortByOptions.filter(x => x.value == sortBy)}
-                        onChange={selectedOption => setSortBy(selectedOption.value)}
+                        value={sortByOptions.filter(x => x.value == searchParamObject.sortBy)}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, sortBy: selectedOption.value})}
                     />
                 </div>
                 <div className="me-3">
@@ -108,13 +158,9 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         id="sort-order"
                         name="sort-order"
                         options={sortOrderOptions}
-                        value={sortOrderOptions.filter(x => x.value == sortOrder)}
-                        onChange={selectedOption => setSortOrder(selectedOption.value)}
+                        value={sortOrderOptions.filter(x => x.value == searchParamObject.sortOrder)}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, sortOrder: selectedOption.value})}
                     />
-                </div>
-                <div className="me-3">
-                    <label className="form-label">&nbsp;</label>
-                    <button type="button" className='btn btn-info form-control' onClick={fetchFoodItems}>refresh</button>
                 </div>
             </div>
 
@@ -151,7 +197,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                     </tr>
                 </tfoot> */}
             </table>
-        </div>
+        </form>
     );
 };
 
