@@ -6,8 +6,8 @@ import Select from 'react-select';
 const RecipeForm = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
 
-    const [foodQuantityUnitTypes, setFoodQuantityUnitTypes] = useState([]);
     const [unitDictionary, setUnitDictionary] = useState();
+    const [unitOptions, setUnitOptions] = useState();
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -23,23 +23,67 @@ const RecipeForm = () => {
     }, [unitDictionary, id]);
 
     const fetchUnits = async () => {
-        let url = `/api/lookup/units`
+        const query = `
+{
+  units
+  {
+    id
+    name
+    abbreviationCsv
+    type
+    canBeFoodQuantity
+    fromUnitConversions
+    {
+      ratio
+      toUnit
+      {
+        id
+        name
+      }
+    }
+  }
+}`;
+        const url = "/graphql/query";
+
         try {
-            const response = await fetch(url);
+            const body = JSON.stringify({query});
+            
+            const response = await fetch(url, {
+                method: 'POST'
+              , headers: { 'Content-Type': 'application/json' }
+              , body: body
+            });
+
+            const { data } = await response.json();
+
             if (!response.ok) {
                 throw new Error(`Request to ${url} reponse status is ${response.status}.`);
             }
 
-            const units = await response.json();
+            const units = data.units;
+
             const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
             setUnitDictionary(newUnitDct);
 
-            setFoodQuantityUnitTypes(units.filter(unit => true === unit.canBeFoodQuantity).map(u => u.type).filter((unitType, index, arr) => arr.indexOf(unitType) == index).toSorted((ut1, ut2) => ut1.localeCompare(ut2)).map(unitType => ({ value: unitType, label: unitType })))
+            const groupByType = Object.groupBy(units.filter(u => u.canBeFoodQuantity), u => u.type);
+            const unitTypes = Object.keys(groupByType).toSorted((t1, t2) => t1.localeCompare(t2))
+            const groupedOptions =
+                unitTypes
+                    .map(unitType => ({
+                        label: unitType
+                      , options: groupByType[unitType].toSorted((u1, u2) => u1.name.localeCompare(u2.name)).map(unit => ({
+                            value: unit.id
+                          , label: unit.name
+                          , unit: unit
+                        }))
+                    }));
 
-            return units;
+            setUnitOptions(groupedOptions);
         }
         catch (error) {
             console.error(`Request to ${url} failed.`, error)
+            setUnitDictionary(null);
+            setUnitOptions(null);
         }
     }
 
@@ -51,15 +95,63 @@ const RecipeForm = () => {
     const [amountMadeUnitOptions, setAmountMadeUnitOptions] = useState([]);
 
     const fetchIngredientFoodItemOptions = async(index, q) => {
-        const response = await fetch(`/api/fooditems?q=${q}`);
-        if (!response.ok) {
-            throw new Error("Request to /api/fooditems reponse status is " + response.status + ".");
+        const query = `
+query foodItems($query: String) {
+  foodItems(query: $query, pageSize: 10) {
+    totalCount
+    totalPages
+    items {
+      id
+      name
+      brand
+      servingSizes {
+        id
+        quantity
+        displayOrder
+        unit {
+          id
+          abbreviationCsv
+          name
+          type
+          canBeFoodQuantity
         }
+      }
+      foodItemNutrients {
+        id
+        nutrient {
+          id
+          name
+          currentDailyValue
+          group
+          displayOrder
+        }
+        unit {
+          id
+          abbreviationCsv
+          name
+          type
+          canBeFoodQuantity
+        }
+      }
+    }
+  }
+}`;
 
-        const data = await response.json();
-        const options = data.map(item => ({
+        const body = JSON.stringify({query, variables: { query: q }});
+        const response = await fetch('/graphql/query', {
+            method: 'POST'
+          , headers: {
+                'Content-Type': 'application/json'
+            }
+          , body: body
+        });
+        
+        const { data } = await response.json();
+
+        const options = data.foodItems.items.map(item => ({
             value: item.id
           , label: item.name
+          , foodItem: item
         }));
 
         return options;
@@ -149,6 +241,29 @@ const RecipeForm = () => {
         fetchAndSetIngredientFoodItemOptions(index, text);
     };
 
+    const handleIngredientSelectionChange = async (index, selectedOption) => {
+        if (selectedOption) {
+            const unitTypes = selectedOption.foodItem.servingSizes.map(s => s.unit.type);
+            const ingredientUnitOptions = unitOptions.filter(grp => unitTypes.indexOf(grp.label) >= 0);
+            const newIngredient = { foodItemId: selectedOption.value, quantity: 0, quantityUnitId: null, ingredientUnitOptions: ingredientUnitOptions };
+            
+            const newIngredients = [... recipe.ingredients];
+            newIngredients[index] = newIngredient;
+
+            const newRecipe = {...recipe, ingredients: newIngredients};
+            setRecipe(newRecipe);
+        }
+        else {
+            const newIngredient = { foodItemId: null, quantity: 0, quantityUnitId: null, ingredientUnitOptions: ingredientUnitOptions };
+            
+            const newIngredients = [... recipe.ingredients];
+            newIngredients[index] = newIngredient;
+
+            const newRecipe = {...recipe, ingredients: newIngredients};
+            setRecipe(newRecipe);
+        }
+    }
+
     const fetchRecipe = async (id) => {
         const response = await fetch(`/api/recipes/${id}`);
         const data = await response.json();
@@ -218,30 +333,10 @@ const RecipeForm = () => {
         }
     }
 
-    const handleAmountMadeUnitTypeChange = async(index, unitTypeOption) => {
-        const newUnitOptions = amountMadeUnitOptions.slice();
-
-        if (unitTypeOption?.value) {
-
-            const unitsForType = Object.values(unitDictionary).filter(u => u.type === unitTypeOption.value);
-            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.name }));
-            newUnitOptions[index] = unitOptions;
-        }
-        else {
-            newUnitOptions[index] = [];
-        }
-        setAmountMadeUnitOptions(newUnitOptions);
-
-        const newMadeAmounts = [...recipe.amountsMade];
-        newMadeAmounts[index].quantityUnitType = unitTypeOption?.value;
-
-        const newRecipe = { ...recipe, amountsMade: newMadeAmounts};
-        setRecipe(newRecipe);
-    };
-
     const handleAmountMadeUnitChange = async(index, unitOption) => {
         const newAmountsMade = [...recipe.amountsMade];
         newAmountsMade[index].quantityUnitId = unitOption.value;
+        newAmountsMade[index].quantityUnitType = unitOption.unit.type;
 
         const newRecipe = { ...recipe, amountsMade: newAmountsMade};
         setRecipe(newRecipe);
@@ -350,124 +445,117 @@ const RecipeForm = () => {
             </div>
 
             <h5>Amount Made</h5>
-            {(recipe.amountsMade || []).map((amountMade, index) => (
-                <div key={index} className='row mb-3'>
-                    <div className="col">
-                        <label htmlFor={`amountMade-quantity-${index}`}>Quantity</label>
-                        <input
-                            id={`amountMade-quantity-${index}`}
-                            type="number"
-                            name="quantity"
-                            className="form-control"
-                            value={amountMade.quantity}
-                            onChange={(e) => handleAmountMadeChange(index, e)}
-                            placeholder="Quantity"
-                            required
-                        />
-                    </div>
-                    <div className='col'>
-                        <label htmlFor={`amountMade-unit-type-${index}`}>Unit Type:</label>
-                        <Select
-                            id={`amountMade-unit-type-${index}`}
-                            options={foodQuantityUnitTypes}
-                            name="amountMadeUnitType"
-                            isSearchable
-                            isClearable={false}
-                            onChange={(selectedOption) => handleAmountMadeUnitTypeChange(index, selectedOption)}
-                            value={foodQuantityUnitTypes.find(option => option.value == amountMade.quantityUnitType) || null}
-                        />
-                    </div>
-                    <div className='col'>
-                        <label htmlFor={`amountMade-unit-${index}`}>Unit:</label>
-                        <Select
-                            id={`amountMade-unit-${index}`}
-                            options={amountMadeUnitOptions[index]}
-                            name="amountMadeUnitId"
-                            isSearchable
-                            isDisabled={false}
-                            onChange={(selectedOption) => handleAmountMadeUnitChange(index, selectedOption)}
-                            value={amountMadeUnitOptions[index]?.find(option => option.value === amountMade.quantityUnitId) || null}
-                        />
-                    </div>
-                    <div className="col-auto align-self-end">
-                        <div className="btn-group" role="group" aria-label="Button group">
-                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveAmountMadeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveAmountMadeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeAmountMade(index)}><i className="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                </div>
-            ))}
+            <table className='table table-striped table-bordered'>
+                <thead>
+                    <tr>
+                        <th style={{width:"50%"}} scope="col">Unit</th>
+                        <th style={{width:"50%"}} scope="col">Quantity</th>
+                        <th style={{width: "1%", whiteSpace: "nowrap"}} scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {(recipe.amountsMade || []).map((amountMade, index) => (
+                        <tr key={index}>
+                            <td>
+                                <label htmlFor={`amountMade-quantity-${index}`} className='visually-hidden'>Quantity</label>
+                                <input
+                                    id={`amountMade-quantity-${index}`}
+                                    type="number"
+                                    name="quantity"
+                                    className="form-control"
+                                    value={amountMade.quantity}
+                                    onChange={(e) => handleAmountMadeChange(index, e)}
+                                    placeholder="Quantity"
+                                    required
+                                />
+                            </td>
+                            <td>
+                                <label htmlFor={`amountMade-unit-${index}`} className='visually-hidden'>Unit:</label>
+                                <Select
+                                    id={`amountMade-unit-${index}`}
+                                    options={unitOptions.filter(grp => {
+                                        const otherTypes = recipe.amountsMade.filter((_, i) => i != index).map(am => am.quantityUnitType);
+                                        return otherTypes.indexOf(grp.label) < 0;
+                                    })}
+                                    name="amountMadeUnitId"
+                                    isSearchable
+                                    isDisabled={false}
+                                    onChange={(selectedOption) => handleAmountMadeUnitChange(index, selectedOption)}
+                                    value={unitOptions.reduce((acc, cur) => [...acc, ...cur.options], [ ]).find(option => option.value === amountMade.quantityUnitId) || null}
+                                />
+                            </td>
+                            <td>
+                                <div className="btn-group" role="group" aria-label="Button group">
+                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveAmountMadeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveAmountMadeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeAmountMade(index)}><i className="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
 
-            <button type="button" className="btn btn-secondary mb-3" onClick={addAmountMade}>Add Amount Made</button>
+            <button type="button" className="btn btn-secondary mb-3" onClick={addAmountMade} disabled={ (recipe?.amountsMade?.length ?? 0) >= unitOptions?.length }>Add Amount Made</button>
 
             <h5>Ingredients</h5>
-
-            {recipe.ingredients.map((ingredient, index) => (
-                <div key={index} className="row mb-3">
-                    <div className="col">
-                        <label htmlFor={`ingredient-selection-${index}`}>Ingredient:</label>
-                        <Select
-                            options={ingredientFoodItemOptions[index]}
-                            onInputChange={(text) => handleIngredientLookupInputChange(index, text)}
-                            onChange={(selectedOption) => {
-                                const updatedIngredients = [...recipe.ingredients];
-                                updatedIngredients[index] = {
-                                    ...updatedIngredients[index],
-                                    foodItemId: selectedOption ? selectedOption.value : '',
-                                    foodItemName: selectedOption ? selectedOption.label : ''
-                                };
-                                setRecipe({ ...recipe, ingredients: updatedIngredients });
-                                updateUnitTypesForIngredient(index, selectedOption?.value);
-                            }}
-                            isClearable
-                            value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null}
-                        />
-                    </div>
-                    <div className="col">
-                        <label htmlFor={`ingredient-quantity-${index}`}>Quantity</label>
-                        <input
-                            id={`ingredient-quantity-${index}`}
-                            type="number"
-                            name="quantity"
-                            className="form-control"
-                            value={ingredient.quantity}
-                            onChange={(e) => handleIngredientChange(index, e)}
-                            placeholder="Quantity"
-                            required
-                        />
-                    </div>
-                    <div className='col'>
-                        <label htmlFor={`ingredient-unit-type-${index}`}>Unit Type:</label>
-                        <Select
-                            id={`ingredient-unit-type-${index}`}
-                            options={ingredientUnitTypeOptions[index]}
-                            name="quantityUnitType"
-                            isDisabled={false}
-                            onChange={(selectedOption) => handleIngredientUnitTypeChange(index, selectedOption)}
-                            value={ingredientUnitTypeOptions[index]?.find(option => option.value == ingredient.quantityUnitType) || null}
-                        />
-                    </div>
-                    <div className='col'>
-                        <label htmlFor={`ingredient-unit-${index}`}>Unit:</label>
-                        <Select
-                            id={`ingredient-unit-${index}`}
-                            options={ingredientUnitOptions[index]}
-                            name="quantityUnitId"
-                            isDisabled={false}
-                            onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
-                            value={ingredientUnitOptions[index]?.find(option => option.value === ingredient.quantityUnitId) || null}
-                        />
-                    </div>
-                    <div className="col-auto align-self-end">
-                        <div className="btn-group" role="group" aria-label="Button group">
-                            <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveIngredientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                            <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveIngredientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                            <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeIngredient(index)}><i className="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                </div>
-            ))}
+            <table className='table table-striped table-bordered'>
+                <thead>
+                    <tr>
+                        <th style={{width:"33%"}} scope="col">Ingredient</th>
+                        <th style={{width:"33%"}} scope="col">Quantity</th>
+                        <th style={{width:"33%"}} scope="col">Unit</th>
+                        <th style={{width: "1%", whiteSpace: "nowrap"}} scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {recipe.ingredients.map((ingredient, index) => (
+                        <tr key={index}>
+                            <td className="col">
+                                <label htmlFor={`ingredient-selection-${index}`} className='visually-hidden'>Ingredient:</label>
+                                <Select
+                                    options={ingredientFoodItemOptions[index]}
+                                    onInputChange={(text) => handleIngredientLookupInputChange(index, text)}
+                                    onChange={selectedOption => { handleIngredientSelectionChange(index, selectedOption); }}
+                                    isClearable
+                                    value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null}
+                                />
+                            </td>
+                            <td className="col">
+                                <label htmlFor={`ingredient-quantity-${index}`} className='visually-hidden'>Quantity</label>
+                                <input
+                                    id={`ingredient-quantity-${index}`}
+                                    type="number"
+                                    name="quantity"
+                                    className="form-control"
+                                    value={ingredient.quantity}
+                                    onChange={(e) => handleIngredientChange(index, e)}
+                                    placeholder="Quantity"
+                                    required
+                                />
+                            </td>
+                            <td className='col'>
+                                <label htmlFor={`ingredient-unit-${index}`} className='visually-hidden'>Unit:</label>
+                                <Select
+                                    id={`ingredient-unit-${index}`}
+                                    options={ingredient.ingredientUnitOptions}
+                                    name="quantityUnitId"
+                                    isClearable
+                                    onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
+                                    value={ingredient?.ingredientUnitOptions?.reduce((arr, cur) => [...arr, ...cur.options], [])?.find(option => option.value === ingredient.quantityUnitId) || null}
+                                />
+                            </td>
+                            <td className="col-auto align-self-end">
+                                <div className="btn-group" role="group" aria-label="Button group">
+                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveIngredientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveIngredientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeIngredient(index)}><i className="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
 
             <button type="button" className="btn btn-secondary mb-3" onClick={addIngredient}>Add Ingredient</button>
 

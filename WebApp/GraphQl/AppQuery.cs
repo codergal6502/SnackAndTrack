@@ -151,12 +151,14 @@ namespace SnackAndTrack.WebApp.GraphQl {
 
             Field<FoodItemsResponseGraphType>(nameof(SnackAndTrackDbContext.FoodItems))
                 .Argument<StringGraphType>(nameof(FoodItem.Name), $"Filter by {nameof(FoodItem.Name).ToLower()}")
+                .Argument<StringGraphType>("Query", $"Filter by multiple fields.")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
                 .Argument<EnumerationGraphType<SortOrder>>("sortOrder")
                 .Argument<EnumerationGraphType<FoodItemSortBy>>("sortBy")
                 .Resolve(context => {
-                    var nameFilter = context.GetArgument<String>(nameof(FoodItem.Name));
+                    var nameFilter = context.GetArgument<String>(nameof(FoodItem.Name))?.ToLower();
+                    var textFilter = context.GetArgument<String>("Query")?.ToLower();
                     var page = context.GetArgument<int?>("page") ?? 1;
                     var pageSize = context.GetArgument<int?>("pageSize") ?? 10;
 
@@ -168,8 +170,12 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
                             .AsQueryable();
 
+                    if (!String.IsNullOrEmpty(textFilter)) {
+                        query = query.Where(f => f.Name.ToLower().Contains(textFilter) || f.Brand.ToLower().Contains(textFilter));
+                    }
+
                     if (!String.IsNullOrEmpty(nameFilter)) {
-                        query = query.Where(f => f.Name.ToLower().Contains(nameFilter.ToLower()));
+                        query = query.Where(f => f.Name.ToLower().Contains(nameFilter));
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
@@ -199,6 +205,20 @@ namespace SnackAndTrack.WebApp.GraphQl {
                         Items = items.Result,
                         TotalPages = totalPages,
                     };
+                });
+
+            Field<FoodItemGraphType>(nameof(FoodItem))
+                .Argument<GuidGraphType>(nameof(FoodItem.Id), $"{nameof(FoodItem.Id)} of {nameof(FoodItem)} to retrieve.")
+                .ResolveAsync(async context => {
+                    var id = context.GetArgument<Guid?>(nameof(FoodItem.Id));
+
+                    return await dbContext
+                        .FoodItems
+                        .Include(fi => fi.GeneratedFrom)
+                        .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Nutrient)
+                        .Include(fi => fi.FoodItemNutrients.OrderBy(fin => fin.DisplayOrder)).ThenInclude(fin => fin.Unit)
+                        .Include(fi => fi.ServingSizes.OrderBy(s => s.DisplayOrder)).ThenInclude(s => s.Unit)
+                        .SingleOrDefaultAsync(fi => fi.Id == id);
                 });
 
             Field<ListGraphType<UnitGraphType>>(nameof(SnackAndTrackDbContext.Units))

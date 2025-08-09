@@ -159,7 +159,7 @@ query GetFoodItems($qName: String!) {
   }
 }`;
 
-        const body=JSON.stringify({query, variables: { qName }});
+        const body = JSON.stringify({query, variables: { qName }});
         const response = await fetch('/graphql/query', {
             method: 'POST'
           , headers: {
