@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 
 const RecipeForm = () => {
-    const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
+    const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [], amountsMade: [] });
 
     const [unitDictionary, setUnitDictionary] = useState();
     const [unitOptions, setUnitOptions] = useState();
@@ -64,6 +64,8 @@ const RecipeForm = () => {
 
             const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
             setUnitDictionary(newUnitDct);
+
+            // TODO: add a custom quantity type so you can specify, e.g., package or cookie or whatever instead of item
 
             const groupByType = Object.groupBy(units.filter(u => u.canBeFoodQuantity), u => u.type);
             const unitTypes = Object.keys(groupByType).toSorted((t1, t2) => t1.localeCompare(t2))

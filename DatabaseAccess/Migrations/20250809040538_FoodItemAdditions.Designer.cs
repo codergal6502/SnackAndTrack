@@ -12,8 +12,8 @@ using SnackAndTrack.DatabaseAccess;
 namespace DatabaseAccess.Migrations
 {
     [DbContext(typeof(SnackAndTrackDbContext))]
-    [Migration("20250808171322_JournalEntry")]
-    partial class JournalEntry
+    [Migration("20250809040538_FoodItemAdditions")]
+    partial class FoodItemAdditions
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,14 +60,25 @@ namespace DatabaseAccess.Migrations
 
                     b.Property<string>("Brand")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid?>("GeneratedFoodItem")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
                         .HasColumnType("text");
+
+                    b.Property<bool>("UsableAsRecipeIngredient")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("UsableInFoodJournal")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -156,11 +167,13 @@ namespace DatabaseAccess.Migrations
 
                     b.Property<string>("Group")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
@@ -180,7 +193,8 @@ namespace DatabaseAccess.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<short>("Period")
                         .HasColumnType("smallint");
@@ -273,7 +287,12 @@ namespace DatabaseAccess.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Source")
                         .HasColumnType("text");
@@ -349,18 +368,21 @@ namespace DatabaseAccess.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("AbbreviationCsv")
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("CanBeFoodQuantity")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 

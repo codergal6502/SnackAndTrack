@@ -2,7 +2,8 @@ namespace SnackAndTrack.WebApp.Models {
     public class RecipeModel {
         public Guid Id { get; set; }
         public required String Name { get; set; }
-        public String? Source { get; set; }
+        public required String? Source { get; set; }
+        public required String? Notes { get; set; }
 
         public required AmountMade[] AmountsMade { get; set; }
 

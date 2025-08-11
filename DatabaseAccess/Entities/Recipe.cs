@@ -9,7 +9,10 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
     {
         [Key]
         public virtual required Guid Id { get; set; }
+        [MaxLength(200)]
         public virtual required String Name { get; set; }
+        [MaxLength(200)]
+        public virtual required String? Notes { get; set; }
         public virtual String? Source { get; set; }
         [InverseProperty(nameof(FoodItem.GeneratedFrom))]
         public virtual FoodItem? GeneratedFoodItem { get; set; }

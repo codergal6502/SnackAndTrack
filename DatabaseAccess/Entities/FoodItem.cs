@@ -10,8 +10,13 @@ namespace SnackAndTrack.DatabaseAccess.Entities
     {
         [Key]
         public virtual required Guid Id { get; set; }
+        [MaxLength(200)]
         public virtual required String Name { get; set; }
+        [MaxLength(200)]
         public virtual required String Brand { get; set; }
+        public virtual required Boolean UsableAsRecipeIngredient { get; set; }
+        public virtual required Boolean UsableInFoodJournal { get; set; }
+        public virtual required String? Notes { get; set; }
         [ForeignKey(nameof(Recipe.GeneratedFoodItem))]
         public virtual Recipe? GeneratedFrom { get; set; }
         public virtual required ICollection<FoodItemNutrient> FoodItemNutrients { get; set; }

@@ -18,7 +18,7 @@ namespace DatabaseAccess.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Date = table.Column<DateOnly>(type: "date", nullable: false),
                     Time = table.Column<TimeOnly>(type: "time without time zone", nullable: true),
-                    Quantity = table.Column<short>(type: "smallint", nullable: false),
+                    Quantity = table.Column<float>(type: "real", nullable: false),
                     UnitId = table.Column<Guid>(type: "uuid", nullable: false),
                     FoodItemId = table.Column<Guid>(type: "uuid", nullable: false)
                 },

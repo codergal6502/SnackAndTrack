@@ -154,6 +154,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
                 .Argument<StringGraphType>("Query", $"Filter by multiple fields.")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
+                .Argument<BooleanGraphType>(nameof(FoodItem.UsableAsRecipeIngredient),$"Filter by {nameof(FoodItem.UsableAsRecipeIngredient)}")
+                .Argument<BooleanGraphType>(nameof(FoodItem.UsableInFoodJournal), $"Filter by {nameof(FoodItem.UsableInFoodJournal)}")
                 .Argument<EnumerationGraphType<SortOrder>>("sortOrder")
                 .Argument<EnumerationGraphType<FoodItemSortBy>>("sortBy")
                 .Resolve(context => {
@@ -161,6 +163,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
                     var textFilter = context.GetArgument<String>("Query")?.ToLower();
                     var page = context.GetArgument<int?>("page") ?? 1;
                     var pageSize = context.GetArgument<int?>("pageSize") ?? 10;
+                    var usableAsRecipeIngredientFilter = context.GetArgument<bool?>(nameof(FoodItem.UsableAsRecipeIngredient));
+                    var usableInFoodJournalFilter = context.GetArgument<bool?>(nameof(FoodItem.UsableInFoodJournal));
 
                     var query =
                         dbContext
@@ -176,6 +180,14 @@ namespace SnackAndTrack.WebApp.GraphQl {
 
                     if (!String.IsNullOrEmpty(nameFilter)) {
                         query = query.Where(f => f.Name.ToLower().Contains(nameFilter));
+                    }
+
+                    if (usableAsRecipeIngredientFilter.HasValue) {
+                        query = query.Where(f => usableAsRecipeIngredientFilter == f.UsableAsRecipeIngredient);
+                    }
+                    
+                    if (usableInFoodJournalFilter.HasValue) {
+                        query = query.Where(f => usableInFoodJournalFilter == f.UsableInFoodJournal);
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;

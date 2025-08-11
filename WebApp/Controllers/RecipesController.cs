@@ -60,6 +60,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = Guid.NewGuid()
               , Name = model.Name
               , Source = model.Source
+              , Notes = model.Notes
               , RecipeIngredients = []
               , AmountsMade = []
             };
@@ -120,16 +121,17 @@ namespace SnackAndTrack.WebApp.Controllers {
             var servingRecipeRatio = matchingServingSizeConversion.Quantity / firstAmountMade.Quantity;
             var table = await GenerateComputedFoodItemTable(recipe);
 
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
             FoodItem foodItem = new FoodItem {
                 Id = Guid.NewGuid()
               , Name = recipe.Name
               , Brand = String.Empty
               , GeneratedFrom = recipe
-              , ServingSizes = null // temporary
-              , FoodItemNutrients = null // temporary
+              , UsableInFoodJournal = true
+              , UsableAsRecipeIngredient = false
+              , Notes = recipe.Notes
+              , ServingSizes = []
+              , FoodItemNutrients = []
             };
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
 
             foodItem.ServingSizes = model.ServingSizeConversions.Select((ssc, i) => new ServingSize {
                 Id = Guid.NewGuid()
@@ -284,6 +286,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = recipe.Id
               , Name = recipe.Name
               , Source = recipe.Source
+              , Notes = recipe.Notes
               , Ingredients = (null == recipe.RecipeIngredients) ? [] : recipe.RecipeIngredients.OrderBy(ri => ri.DisplayOrder).Select(ri =>
                     new RecipeModel.Ingredient {
                         FoodItemId = ri.FoodItem.Id

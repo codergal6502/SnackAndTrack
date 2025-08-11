@@ -8,6 +8,9 @@ namespace SnackAndTrack.WebApp.GraphQl
             Field(x => x.Id);
             Field(x => x.Name);
             Field(x => x.Brand);
+            Field(x => x.UsableAsRecipeIngredient);
+            Field(x => x.UsableInFoodJournal);
+            Field(x => x.Notes);
             Field<ListGraphType<ServingSizeGraphType>>(nameof(FoodItem.ServingSizes)).Resolve(context => context.Source.ServingSizes);
             Field<ListGraphType<FoodItemNutrientGraphType>>(nameof(FoodItem.FoodItemNutrients)).Resolve(context => context.Source.FoodItemNutrients);
         }

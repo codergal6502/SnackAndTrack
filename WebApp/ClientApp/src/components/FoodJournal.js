@@ -18,7 +18,7 @@ const FoodJournal = () => {
 
     const doSetJournalState = (x) => { /*debugger;*/ setJournalState(x); }
 
-    // lookups and select iptions
+    // lookups and select options
     const [unitDictionary, setUnitDictionary] = useState(null);
     const [unitOptions, setUnitOptions] = useState([]); // Empty 2D-array
 
@@ -503,7 +503,7 @@ query GetFoodJournalEntries($date: DateOnly) {
         }
         
         const quantityIsNull = !newFoodItemPopupState.quantity?.toString()?.trim();
-        const parsedQuantity = parseInt(newFoodItemPopupState.quantity);
+        const parsedQuantity = parseFloat(newFoodItemPopupState.quantity);
         
         if (quantityIsNull) {
             newFoodItemPopupState["-error-quantity"] = "You must specify how much."
@@ -694,9 +694,9 @@ query GetFoodJournalEntries($date: DateOnly) {
                     {journalState.journalEntries.map((je, entryIndex) => 
                         <tr key={entryIndex}>
                             <td>
-                                <div className='input-group'>
-                                    <input readOnly className='form-control' value={je.foodItem && je.unit && je.quantity ? `${je.foodItem.name}, ${je.quantity} ${je.unit.name}` : ''} />
-                                    <button className='btn btn-secondary' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
+                                <div className="position-relative">
+                                    <label readOnly className='form-label'>{je.foodItem && je.unit && je.quantity ? `${je.foodItem.name}, ${je.quantity} ${je.unit.name} ${je.time}` : ''}</label>
+                                    <button className='btn btn-secondary position-absolute end-0 top-50 translate-middle-y' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
                                 </div>
                             </td>
                             {journalState.nutrientTargets?.map((nt, targetIndex) =>

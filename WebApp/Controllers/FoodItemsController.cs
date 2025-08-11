@@ -76,6 +76,9 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = foodItem.Id
               , Name = foodItem.Name
               , Brand = foodItem.Brand
+              , UsableAsRecipeIngredient = foodItem.UsableAsRecipeIngredient
+              , UsableInFoodJournal = foodItem.UsableInFoodJournal
+              , Notes = foodItem.Notes
               , GeneratedFromName = foodItem.GeneratedFrom?.Name
               , GeneratedFromId = foodItem.GeneratedFrom?.Id
               , Nutrients = (null == foodItem.FoodItemNutrients) ? [] : foodItem.FoodItemNutrients.Select(fin => new FoodItemModel.Nutrient
@@ -99,6 +102,9 @@ namespace SnackAndTrack.WebApp.Controllers {
                 Id = Guid.NewGuid()
               , Brand = model.Brand
               , Name = model.Name
+              , UsableInFoodJournal = model.UsableInFoodJournal
+              , UsableAsRecipeIngredient = model.UsableAsRecipeIngredient
+              , Notes = model.Notes
               , FoodItemNutrients = []
               , ServingSizes = []
             };
@@ -140,6 +146,9 @@ namespace SnackAndTrack.WebApp.Controllers {
         {
             foodItem.Name = model.Name.Trim();
             foodItem.Brand = model.Brand.Trim();
+            foodItem.UsableAsRecipeIngredient = model.UsableAsRecipeIngredient;
+            foodItem.UsableInFoodJournal = model.UsableInFoodJournal;
+            foodItem.Notes = model.Notes?.Trim();
 
             await PopulateServingSizes(model, foodItem);
             await PopulateFoodItemNutrients(model, foodItem);

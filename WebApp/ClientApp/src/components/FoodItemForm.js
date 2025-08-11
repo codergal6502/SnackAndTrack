@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import Select from 'react-select';
 
+const yesNoOptions = [{ label: "Yes", value: true }, { label: "No", value: false }];
+
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
 
     const [unitDictionary, setUnitDictionary] = useState();
     const [unitOptions, setUnitOptions] = useState(); // Empty 2D-array
@@ -13,6 +15,8 @@ const FoodItemForm = () => {
 
     const { id } = useParams();
     const navigate = useNavigate();
+
+    // TODO: after successful save, turn off show errors
 
     useEffect(() => {
         fetchNutrients();
@@ -219,6 +223,18 @@ const FoodItemForm = () => {
         setFoodItem({ ...newFoodItem, [name]: value });
     };
 
+    const handleUsableAsRecipeIngredient = (selectedOption) => {
+        const newFoodItem = { ...foodItem, usableAsRecipeIngredient: selectedOption.value };
+        validateFoodItem(newFoodItem);
+        setFoodItem({ ...newFoodItem });
+    }
+
+    const handleUsableInFoodJournalChange = (selectedOption) => {
+        const newFoodItem = { ...foodItem, usableInFoodJournal: selectedOption.value };
+        validateFoodItem(newFoodItem);
+        setFoodItem({ ...newFoodItem });
+    }
+
     const handleServingSizeChange = (index, e) => {
         const { name, value } = e.target;
         const servingSizes = [...foodItem.servingSizes];
@@ -407,6 +423,42 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         name="brand"
                         className="form-control"
                         value={foodItem?.brand}
+                        onChange={handleChange}
+                    />
+                </div>
+                <div className="me-3">
+                    <label htmlFor="usableAsRecipeIngredient" className="form-label">Usable in Recipe:</label>
+                    <Select
+                        id="usableAsRecipeIngredient"
+                        options={yesNoOptions}
+                        name="usableAsRecipeIngredient"
+                        value={yesNoOptions.filter(opt => opt.value == foodItem.usableAsRecipeIngredient)}
+                        onChange={selectedOptions => { handleUsableAsRecipeIngredient(selectedOptions) }}
+                        styles={{width: "100%"}}
+                    />
+                </div>
+                <div className="me-3">
+                    <label htmlFor="useableInRecipe" className="form-label">Usable in Food Journal:</label>
+                    <Select
+                        id="useableInRecipe"
+                        options={yesNoOptions}
+                        name="useableInRecipe"
+                        value={yesNoOptions.filter(opt => opt.value == foodItem.usableInFoodJournal)}
+                        onChange={selectedOptions => { handleUsableInFoodJournalChange(selectedOptions) }}
+                        styles={{width: "100%"}}
+                    />
+                </div>
+            </div>
+
+            <div className="mb-3">
+                <div className="me-3">
+                    <label htmlFor="foodItem-notes" className="form-label">Notes:</label>
+                    <textarea
+                        id="foodItem-notes"
+                        type="text"
+                        name="notes"
+                        className="form-control"
+                        value={foodItem?.notes || ""}
                         onChange={handleChange}
                     />
                 </div>

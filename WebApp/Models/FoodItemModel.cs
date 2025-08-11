@@ -7,6 +7,9 @@ namespace SnackAndTrack.WebApp.Models {
         public Guid? Id { get; set; }
         public required String Name { get; set; }
         public required String Brand { get; set; }
+        public required Boolean UsableAsRecipeIngredient { get; set; }
+        public required Boolean UsableInFoodJournal { get; set; }
+        public required String? Notes { get; set; }
         public required String? GeneratedFromName { get; set; }
         public required Guid? GeneratedFromId { get; set; }
         public required Nutrient[] Nutrients { get; set; }
