@@ -7,6 +7,7 @@ namespace SnackAndTrack.WebApp.GraphQl
         public RecipeGraphType() {
             Field(x => x.Id);
             Field(x => x.Name);
+            Field(x => x.Notes);
             Field(x => x.Source, nullable: true);
             Field<ListGraphType<RecipeIngredientGraphType>>(nameof(Recipe.RecipeIngredients)).Resolve(context => context.Source.RecipeIngredients);
             Field<ListGraphType<AmountMadeGraphType>>(nameof(Recipe.AmountsMade)).Resolve(context => context.Source.AmountsMade);

@@ -1,98 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-
+import { fetchGraphQl, displayOrderCompareFn, useUnits, ungroupOptions, uniqueFilterFn } from '../utilties';
 import Select from 'react-select';
 
 const RecipeForm = () => {
-    const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [], amountsMade: [] });
-
-    const [unitDictionary, setUnitDictionary] = useState();
-    const [unitOptions, setUnitOptions] = useState();
+    const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [], amountsMade: [  ] });
+    const [unitDictionary, unitOptions] = useUnits();
+    const [ready, setReady] = useState();
 
     const { id } = useParams();
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetchUnits();
-    }, []);
+        if (unitDictionary && unitOptions) {
+            setReady(true);
+        }
+    }, [unitDictionary, unitOptions]);
 
     useEffect(() => {
         if (unitDictionary && id) {
             fetchRecipe(id);
         }
-    }, [unitDictionary, id]);
-
-    const fetchUnits = async () => {
-        const query = `
-{
-  units
-  {
-    id
-    name
-    abbreviationCsv
-    type
-    canBeFoodQuantity
-    fromUnitConversions
-    {
-      ratio
-      toUnit
-      {
-        id
-        name
-      }
-    }
-  }
-}`;
-        const url = "/graphql/query";
-
-        try {
-            const body = JSON.stringify({query});
-            
-            const response = await fetch(url, {
-                method: 'POST'
-              , headers: { 'Content-Type': 'application/json' }
-              , body: body
-            });
-
-            const { data } = await response.json();
-
-            if (!response.ok) {
-                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-            }
-
-            const units = data.units;
-
-            const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
-            setUnitDictionary(newUnitDct);
-
-            // TODO: add a custom quantity type so you can specify, e.g., package or cookie or whatever instead of item
-
-            const groupByType = Object.groupBy(units.filter(u => u.canBeFoodQuantity), u => u.type);
-            const unitTypes = Object.keys(groupByType).toSorted((t1, t2) => t1.localeCompare(t2))
-            const groupedOptions =
-                unitTypes
-                    .map(unitType => ({
-                        label: unitType
-                      , options: groupByType[unitType].toSorted((u1, u2) => u1.name.localeCompare(u2.name)).map(unit => ({
-                            value: unit.id
-                          , label: unit.name
-                          , unit: unit
-                        }))
-                    }));
-
-            setUnitOptions(groupedOptions);
-        }
-        catch (error) {
-            console.error(`Request to ${url} failed.`, error)
-            setUnitDictionary(null);
-            setUnitOptions(null);
-        }
-    }
-
-    // These three are arrays-of-arrays, e.g., [ [ ] ]
-    const [ingredientFoodItemOptions, setIngredientFoodItemOptions] = useState([]);
-    const [ingredientUnitTypeOptions, setIngredientUnitTypeOptions] = useState([]);
-    const [ingredientUnitOptions, setIngredientUnitOptions] = useState([]);
+    }, [ready, id]);
 
     const [amountMadeUnitOptions, setAmountMadeUnitOptions] = useState([]);
 
@@ -139,21 +68,12 @@ query foodItems($query: String) {
   }
 }`;
 
-        const body = JSON.stringify({query, variables: { query: q }});
-        const response = await fetch('/graphql/query', {
-            method: 'POST'
-          , headers: {
-                'Content-Type': 'application/json'
-            }
-          , body: body
-        });
-        
-        const { data } = await response.json();
+        const data = await fetchGraphQl(query, { query: q });
 
         const options = data.foodItems.items.map(item => ({
             value: item.id
           , label: item.name
-          , foodItem: item
+          , "-foodItem": item
         }));
 
         return options;
@@ -166,10 +86,10 @@ query foodItems($query: String) {
         
         try {
             const options = await fetchIngredientFoodItemOptions(index, q);
-
-            var newFoodItemOptions = [...ingredientFoodItemOptions];
-            newFoodItemOptions[index] = options;
-            setIngredientFoodItemOptions(newFoodItemOptions);
+            const newIngredients = [... recipe.ingredients];
+            newIngredients[index]["-foodItemOptions"] = options;
+            const newRecipe = {...recipe, ingredients: newIngredients };
+            setRecipe(newRecipe);
         }
         catch (error) {
             console.error("Request to /api/fooditems failed.", error)
@@ -182,54 +102,6 @@ query foodItems($query: String) {
         ingredients[index] = { ...ingredients[index], [name]: value };
         setRecipe({ ...recipe, ingredients: ingredients});
     }
-
-    const updateUnitTypesForIngredient = async(index, foodItemId) => {
-        // You can't call this three times in a row when the data first loads because
-        // ingredientUnitTypeOptions doesn't get updated.
-        // Quoth https://stackoverflow.com/a/61951338:
-        //     React state updates are asynchronous, i.e. queued up for the next render
-        const newUnitTypeOptions = ingredientUnitTypeOptions.slice();
-        if (foodItemId) {
-            let url = `/api/fooditems/${foodItemId}`
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-                }
-
-                const ingredient = await response.json();
-                const unitTypeOptions = ingredient.servingSizes.map(s => ({ value: s.unitType, label: s.unitType }));
-                newUnitTypeOptions[index] = unitTypeOptions;
-            }
-            catch (error) {
-                console.error(`Request to ${url} failed.`, error)
-            }
-        }
-        else {
-            newUnitTypeOptions[index] = [];
-        }
-        setIngredientUnitTypeOptions(newUnitTypeOptions);
-    };
-
-    const handleIngredientUnitTypeChange = async(index, unitTypeOption) => {
-        const newUnitOptions = ingredientUnitOptions.slice();
-
-        if (unitTypeOption?.value) {
-            const unitsForType = Object.values(unitDictionary).filter(u => u.type === unitTypeOption.value);
-            const unitOptions = unitsForType.map(u => ({ value: u.id, label: u.name }));
-            newUnitOptions[index] = unitOptions;
-        }
-        else {
-            newUnitOptions[index] = [];
-        }
-        setIngredientUnitOptions(newUnitOptions);
-
-        const newIngredients = [...recipe.ingredients];
-        newIngredients[index].quantityUnitType = unitTypeOption?.value;
-
-        const newRecipe = { ...recipe, ingredients: newIngredients};
-        setRecipe(newRecipe);
-    };
 
     const handleIngredientUnitChange = async(index, unitOption) => {
         const newIngredients = [...recipe.ingredients];
@@ -245,9 +117,15 @@ query foodItems($query: String) {
 
     const handleIngredientSelectionChange = async (index, selectedOption) => {
         if (selectedOption) {
-            const unitTypes = selectedOption.foodItem.servingSizes.map(s => s.unit.type);
+            const unitTypes = selectedOption["-foodItem"].servingSizes.map(s => s.unit.type);
             const ingredientUnitOptions = unitOptions.filter(grp => unitTypes.indexOf(grp.label) >= 0);
-            const newIngredient = { foodItemId: selectedOption.value, quantity: 0, quantityUnitId: null, ingredientUnitOptions: ingredientUnitOptions };
+            const newIngredient = {
+                ...recipe.ingredients[index]
+              , foodItemId: selectedOption.value
+              , quantity: 0
+              , quantityUnitId: null
+              , "-unitOptions": ingredientUnitOptions
+            };
             
             const newIngredients = [... recipe.ingredients];
             newIngredients[index] = newIngredient;
@@ -256,7 +134,13 @@ query foodItems($query: String) {
             setRecipe(newRecipe);
         }
         else {
-            const newIngredient = { foodItemId: null, quantity: 0, quantityUnitId: null, ingredientUnitOptions: ingredientUnitOptions };
+            const newIngredient = {
+                foodItemId: null
+              , quantity: 0
+              , quantityUnitId: null
+              , "-unitOptions": []
+              , "-foodItemOptions": [ ]
+            };
             
             const newIngredients = [... recipe.ingredients];
             newIngredients[index] = newIngredient;
@@ -267,22 +151,83 @@ query foodItems($query: String) {
     }
 
     const fetchRecipe = async (id) => {
-        const response = await fetch(`/api/recipes/${id}`);
-        const data = await response.json();
+        const query = `
+query ($id: Guid!) {
+  recipe(id: $id) {
+    id
+    name
+    notes
+    source
+    amountsMade {
+      id
+      quantity
+      displayOrder
+      unit {
+        id
+        abbreviationCsv
+        name
+        type
+      }
+    }
+    recipeIngredients {
+      id
+      quantity
+      displayOrder
+      unit {
+        id
+        abbreviationCsv
+        name
+        type
+      }
+      foodItem {
+        id
+        name
+        brand
+        servingSizes {
+          id
+          quantity
+          displayOrder
+          unit {
+            id
+            abbreviationCsv
+            name
+            type
+          }
+        }
+      }
+    }
+  }
+}`;
+        const data = await fetchGraphQl(query, { id });
+        const recipeEntity = data.recipe;
 
-        const initialIngredientFoodItemOptions = data.ingredients.map((i) => [ { value: i.foodItemId, label: i.foodItemName } ]);
-        setIngredientFoodItemOptions(initialIngredientFoodItemOptions);
+        const newRecipe = {
+            id: recipeEntity.id
+          , name: recipeEntity.name
+          , notes: recipeEntity.notes
+          , source: recipeEntity.source
+          , notes: recipeEntity.notes
+          , ingredients: (recipeEntity.recipeIngredients ?? []).toSorted(displayOrderCompareFn).map(ri => ({
+                foodItemId: ri.foodItem.id
+              , foodItemName: ri.foodItem.name
+              , quantityUnitId: ri.unit.id
+              , quantityUnitType: ri.unit.type
+              , quantityUnitName: ri.unit.name
+              , quantity: ri.quantity
+              , quantityUnitTypeOptions: ri.foodItem.servingSizes.map(s => s.unit.type).filter(uniqueFilterFn)
+              , "-foodItemOptions": [ { value: ri.foodItem.id, label: ri.foodItem.name } ]
+              , "-unitOptions": unitOptions.filter(opt => opt.label === ri.unit.type)
+            }))
+          , amountsMade: (recipeEntity.amountsMade ?? []).toSorted(displayOrderCompareFn).map(am => ({
+                quantity: am.quantity
+              , quantityUnitId: am.unit.id
+              , quantityUnitName: am.unit.name
+              , quantityUnitType: am.unit.type
+              , "-unitOptions": unitOptions.filter(opt => opt.label === am.unit.type)
+            }))
+        };
 
-        const initialIngredientUnitTypeOptions = data.ingredients.map((i) => i.quantityUnitTypeOptions.map(uto => ({ value: uto, label: uto })));
-        setIngredientUnitTypeOptions(initialIngredientUnitTypeOptions);
-
-        const initialIngredientUnitOptions = data.ingredients.map((i) => Object.values(unitDictionary).filter(u => u.type === i.quantityUnitType).map(u => ({ value: u.id, label: u.name })) );
-        setIngredientUnitOptions(initialIngredientUnitOptions);
-
-        const amountsMadeInitialUnitOptions = data.amountsMade.map((am) => Object.values(unitDictionary).filter(u => u.type === am.quantityUnitType).map(u => ({ value: u.id, label: u.name })) );
-        setAmountMadeUnitOptions(amountsMadeInitialUnitOptions);
-
-        setRecipe(data);
+        setRecipe(newRecipe);
     };
 
     const handleAmountMadeChange = (index, e) => {
@@ -293,8 +238,7 @@ query foodItems($query: String) {
     }
 
     const addAmountMade = async () => {
-        setRecipe({ ...recipe, amountsMade: [...recipe.amountsMade, { quantityUnitType: "", quantityUnitId: "", quantity: 0 }]});
-        setAmountMadeUnitOptions([...amountMadeUnitOptions, []]);
+        setRecipe({ ...recipe, amountsMade: [...recipe.amountsMade, { quantityUnitType: "", quantityUnitId: "", quantity: 0, "-unitOptions": [ ]}]});
     };
 
     const removeAmountMade = (index) => {
@@ -309,12 +253,6 @@ query foodItems($query: String) {
             amountsMade[index] = amountsMade[index - 1];
             amountsMade[index - 1] = a;
             setRecipe({ ...recipe, amountsMade: amountsMade});
-
-            let options = amountMadeUnitOptions.slice();
-            let b = options[index];
-            options[index] = options[index - 1];
-            options[index - 1] = b;
-            setAmountMadeUnitOptions(options);
         }
     }
 
@@ -325,13 +263,6 @@ query foodItems($query: String) {
             amountsMade[index] = amountsMade[index + 1];
             amountsMade[index + 1] = a;
             setRecipe({ ...recipe, amountsMade: amountsMade});
-
-            let options = amountMadeUnitOptions.slice();
-            let b = options[index];
-            options[index] = options[index + 1];
-            options[index + 1] = b;
-            setAmountMadeUnitOptions(options);
-
         }
     }
 
@@ -345,16 +276,12 @@ query foodItems($query: String) {
     }
 
     const addIngredient = async () => {
-        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitType: "", quantityUnitId: "", quantity: 0 }]});
-        setIngredientFoodItemOptions([...ingredientFoodItemOptions, []]);
+        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitType: "", quantityUnitId: "", quantity: 0, "-foodItemOptions": [ ], "-unitOptions": [ ] }]});
     };
 
     const removeIngredient = (index) => {
         const ingredients = recipe.ingredients.filter((_, i) => i !== index);
         setRecipe({ ...recipe, ingredients: ingredients });
-
-        const newFoodItemOptions = ingredientFoodItemOptions.filter((_, i) => i !== index);
-        setIngredientFoodItemOptions(newFoodItemOptions);
     }
 
     const moveIngredientUp = (index) => {
@@ -364,12 +291,6 @@ query foodItems($query: String) {
             ingredients[index] = ingredients[index - 1];
             ingredients[index - 1] = a;
             setRecipe({ ...recipe, ingredients: ingredients});
-
-            let options = ingredientFoodItemOptions.slice();
-            let b = options[index];
-            options[index] = options[index - 1];
-            options[index - 1] = b;
-            setIngredientFoodItemOptions(options);
         }
     }
 
@@ -380,13 +301,6 @@ query foodItems($query: String) {
             ingredients[index] = ingredients[index + 1];
             ingredients[index + 1] = a;
             setRecipe({ ...recipe, ingredients: ingredients});
-
-            let options = ingredientFoodItemOptions.slice();
-            let b = options[index];
-            options[index] = options[index + 1];
-            options[index + 1] = b;
-            setIngredientFoodItemOptions(options);
-
         }
     }
 
@@ -397,24 +311,33 @@ query foodItems($query: String) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (id) {
-            await fetch(`/api/recipes/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(recipe),
-            });
-        } else {
-            await fetch('/api/recipes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(recipe),
-            });
+        const hasErrors = false;// validateAndSetRecipe(recipe);
+
+        if (!hasErrors) {
+            if (id) {
+                const response = await fetch(`/api/recipes/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(recipe),
+                });
+                
+                navigate(`/RecipeForm/${id}`);
+            } else {
+                const response = await fetch('/api/recipes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(recipe),
+                });
+
+                const json = await response.json();
+                setRecipe({...recipe, id: json.id});
+                navigate(`/RecipeForm/${json.id}`);
+            }
         }
-        navigate('/RecipeList');
     };
 
     return (
@@ -441,6 +364,20 @@ query foodItems($query: String) {
                         name="source"
                         className="form-control"
                         value={recipe?.source}
+                        onChange={handleChange}
+                    />
+                </div>
+            </div>
+
+            <div className="mb-3">
+                <div className="me-3">
+                    <label htmlFor="recipe-notes" className="form-label">Notes:</label>
+                    <textarea
+                        id="recipe-notes"
+                        type="text"
+                        name="notes"
+                        className="form-control"
+                        value={recipe?.notes || ""}
                         onChange={handleChange}
                     />
                 </div>
@@ -516,11 +453,11 @@ query foodItems($query: String) {
                             <td className="col">
                                 <label htmlFor={`ingredient-selection-${index}`} className='visually-hidden'>Ingredient:</label>
                                 <Select
-                                    options={ingredientFoodItemOptions[index]}
+                                    options={ingredient["-foodItemOptions"]}
                                     onInputChange={(text) => handleIngredientLookupInputChange(index, text)}
                                     onChange={selectedOption => { handleIngredientSelectionChange(index, selectedOption); }}
                                     isClearable
-                                    value={ingredientFoodItemOptions[index]?.find(option => option.value === ingredient.foodItemId) || null}
+                                    value={ingredient["-foodItemOptions"]?.find(option => option.value === ingredient.foodItemId) || ""}
                                 />
                             </td>
                             <td className="col">
@@ -540,11 +477,11 @@ query foodItems($query: String) {
                                 <label htmlFor={`ingredient-unit-${index}`} className='visually-hidden'>Unit:</label>
                                 <Select
                                     id={`ingredient-unit-${index}`}
-                                    options={ingredient.ingredientUnitOptions}
+                                    options={ingredient["-unitOptions"]}
                                     name="quantityUnitId"
                                     isClearable
                                     onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
-                                    value={ingredient?.ingredientUnitOptions?.reduce((arr, cur) => [...arr, ...cur.options], [])?.find(option => option.value === ingredient.quantityUnitId) || null}
+                                    value={ingredient["-unitOptions"]?.reduce((arr, cur) => [...arr, ...cur.options], [])?.find(option => option.value === ingredient.quantityUnitId) || null}
                                 />
                             </td>
                             <td className="col-auto align-self-end">

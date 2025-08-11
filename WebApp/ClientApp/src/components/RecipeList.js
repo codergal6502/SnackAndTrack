@@ -62,7 +62,7 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
     return (
         <div>
             <h1>Recipes</h1>
-            <Link to="/recipeform" className="btn btn-primary mb-3">Add Recipe</Link>
+            <Link to="/RecipeForm" className="btn btn-primary mb-3">Add Recipe</Link>
 
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -125,7 +125,7 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                             <td>
                                 <div className="btn-group" role="group" aria-label="Button group">
                                     <Link to={`/recipeview/${item.id}`} className="btn btn-outline-secondary">View</Link>
-                                    <Link to={`/recipeform/${item.id}`} className="btn btn-outline-secondary">Edit</Link>
+                                    <Link to={`/RecipeForm/${item.id}`} className="btn btn-outline-secondary">Edit</Link>
                                 </div>
                             </td>
                         </tr>
