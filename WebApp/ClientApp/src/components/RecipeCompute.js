@@ -149,7 +149,7 @@ const RecipeCompute = () => {
                             );}))}
                         </tbody>
                     </table>
-                    <h5>Recipe Serving Sizes</h5>
+                    <h5>Food Item Serving Sizes</h5>
                     <table className='table table-striped table-bordered'>
                         <thead>
                             <tr>

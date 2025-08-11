@@ -1,27 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import Select from 'react-select';
+import { fetchGraphQl } from '../utilties';
 
 const RecipeList = () => {
-    const [recipes, setRecipes] = useState([]);
 
-    const [page, setPage] = useState(1);
-    const [pageCount, setPageCount] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [sortOrder, setSortOrder] = useState("ASCENDING");
-    const [sortBy, setSortBy] = useState("NAME")
+    const [recipes, setRecipes] = useState([]);
+    const [nameInput, setNameInput] = useState("");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParamObject, setSearchParamObject] = useState();
+    const [pageCount, setPageCount] = useState(null);
 
     useEffect(() => {
-        fetchRecipes();
-    }, []);
+        if (searchParamObject) {
+            fetchRecipes();
+        }
+    }, [searchParamObject]);
+
+    useEffect(() => {
+        if (searchParams) {
+            var newSearchParamObject = Object.fromEntries(searchParams);
+            var defaultSearchParamObject = { name: "", page: 1, pageSize: 20, sortOrder: "ASCENDING", sortBy: "NAME" };
+            newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
+            setSearchParamObject(newSearchParamObject);
+        }
+    }, [searchParams]);
 
     const sortByOptions = [ { label: "Name", value: "NAME" } ];
     const sortOrderOptions = [ { label: "Ascending", value: "ASCENDING" }, { label: "Descending", value: "DESCENDING" } ];
 
     const fetchRecipes = async () => {
         const query = `
-query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: RecipeSortBy!) {
-    recipes(page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
+query Recipes($name: String, $page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: RecipeSortBy!) {
+    recipes(name: $name, page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
         items {
             id
             name
@@ -29,50 +41,65 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
     }
 }
         `;
+        setSearchParams({
+            page: parseInt(searchParamObject.page)
+          , pageSize: parseInt(searchParamObject.pageSize)
+          , sortOrder: searchParamObject.sortOrder
+          , sortBy: searchParamObject.sortBy
+          , name: searchParamObject.name
+        });
+        setNameInput(searchParamObject.name);
 
-        const body=JSON.stringify({
-            query
-          , variables: {
-                page: parseInt(page)
-              , pageSize: parseInt(pageSize)
-              , sortOrder
-              , sortBy
-            },
+        const data = await fetchGraphQl(query, {
+            page: parseInt(searchParamObject.page)
+          , pageSize: parseInt(searchParamObject.pageSize)
+          , sortOrder: searchParamObject.sortOrder
+          , sortBy: searchParamObject.sortBy
+          , name: searchParamObject.name
         });
-        const response = await fetch('/graphql/query', {
-            method: 'POST'
-          , headers: {
-                'Content-Type': 'application/json'
-            }
-          , body: body
-        });
-        
-        const { data } = await response.json();
+
         setPageCount(data.recipes.totalPages);
         setRecipes(data.recipes.items); 
     };
+    
+    const searchTextTimeoutIdList = useRef([ ]);
 
-    const handleDelete = async (id) => {
-        await fetch(`/api/recipes/${id}`, {
-            method: 'DELETE',
-        });
-        fetchRecipes();
-    };
+    const debouncedSearchTextChange = async (q) => {
+        console.log("fetch", q);
+        setSearchParamObject({... searchParamObject, name: q});
+    }
 
-    return (
-        <div>
+    const searchTextChange = async(q) => {
+        clearTimeout(searchTextTimeoutIdList.current.shift());
+        searchTextTimeoutIdList.current.push(setTimeout((q2) => { debouncedSearchTextChange(q2); }, 100, q));
+
+        setNameInput(q);
+    }
+
+    return searchParamObject && (
+        <form autoComplete='Off'>
             <h1>Recipes</h1>
             <Link to="/RecipeForm" className="btn btn-primary mb-3">Add Recipe</Link>
 
             <div className="d-flex mb-3">
+                <div className="me-3">
+                    <label htmlFor="search" className="form-label">Search:</label>
+                    <input
+                        id="search"
+                        name="search"
+                        value={nameInput}
+                        className='form-control'
+                        onChange={(e) => { searchTextChange(e.target.value); }}
+                    />
+                </div>
                 <div className="me-3">
                     <label htmlFor="page" className="form-label">Page:</label>
                     <Select
                         id="page"
                         name="page"
                         options={[...Array(pageCount).keys().map(i => ({ label: i+1, value: i+1 }))]}
-                        value={{ label: page, value: page}}
-                        onChange={selectedOption => setPage(selectedOption.value)}
+                        value={{ label: searchParamObject.page, value: searchParamObject.page}}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, page: parseInt(selectedOption.value)})}
                     />
                 </div>
                 <div className="me-3">
@@ -81,8 +108,8 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                         id="page-size"
                         name="page-size"
                         options={[5, 10, 20, 50, 100].map(i => ({ label: i, value: i }))}
-                        value={{ label: pageSize, value: pageSize}}
-                        onChange={selectedOption => setPageSize(selectedOption.value)}
+                        value={{ label: searchParamObject.pageSize, value: searchParamObject.pageSize}}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, pageSize: parseInt(selectedOption.value)})}
                     />
                 </div>
                 <div className="me-3">
@@ -91,8 +118,8 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                         id="sort-by"
                         name="sort-by"
                         options={sortByOptions}
-                        value={sortByOptions.filter(x => x.value == sortBy)}
-                        onChange={selectedOption => setSortBy(selectedOption.value)}
+                        value={sortByOptions.filter(x => x.value == searchParamObject.sortBy)}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, sortBy: selectedOption.value})}
                     />
                 </div>
                 <div className="me-3">
@@ -101,16 +128,12 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                         id="sort-order"
                         name="sort-order"
                         options={sortOrderOptions}
-                        value={sortOrderOptions.filter(x => x.value == sortOrder)}
-                        onChange={selectedOption => setSortOrder(selectedOption.value)}
+                        value={sortOrderOptions.filter(x => x.value == searchParamObject.sortOrder)}
+                        onChange={selectedOption => setSearchParamObject({... searchParamObject, sortOrder: selectedOption.value})}
                     />
                 </div>
-                <div className="me-3">
-                    <label className="form-label">&nbsp;</label>
-                    <button type="button" className='btn btn-info form-control' onClick={fetchRecipes}>refresh</button>
-                </div>
             </div>
-            
+
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
@@ -123,9 +146,10 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                         <tr key={index}>
                             <td>{item.name}</td>
                             <td>
-                                <div className="btn-group" role="group" aria-label="Button group">
-                                    <Link to={`/recipeview/${item.id}`} className="btn btn-outline-secondary">View</Link>
-                                    <Link to={`/RecipeForm/${item.id}`} className="btn btn-outline-secondary">Edit</Link>
+                                <div className="bd-example m-0 border-0">
+                                    <Link to={`/RecipeForm/${item.id}`} className="btn btn-primary">Edit</Link>
+                                    <Link to={`/RecipeCompute/${item.id}`} className="btn btn-info">Create Food Item</Link>
+                                    <Link to={`#`} className="btn btn-secondary">Create Duplicate</Link>
                                 </div>
                             </td>
                         </tr>
@@ -142,7 +166,7 @@ query Recipes($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: Rec
                     </tr>
                 </tfoot> */}
             </table>
-        </div>
+        </form>
     );
 };
 

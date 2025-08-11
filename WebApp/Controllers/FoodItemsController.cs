@@ -125,7 +125,30 @@ namespace SnackAndTrack.WebApp.Controllers {
             if (id != model.Id) {
                 return BadRequest();
             }
-            
+
+            FoodItem foodItem = await SingleFoodItemBaseQuery()
+                .SingleAsync(fi => fi.Id == id);
+
+            if (null == foodItem) {
+                return NotFound();
+            }
+
+            if (null != foodItem.GeneratedFrom) {
+                return await ProcessPutForGeneratedFoodItem(model, foodItem);
+            }
+            else {
+                return await ProcessPutForNonGeneratedFoodItem(model, foodItem);   
+            }
+        }
+
+        private async Task<IActionResult> ProcessPutForGeneratedFoodItem(FoodItemModel model, FoodItem foodItem) {
+            PopulateFoodItemFields(model, foodItem);
+
+            await this._context.SaveChangesAsync();
+
+            return NoContent();
+        }
+        private async Task<IActionResult> ProcessPutForNonGeneratedFoodItem(FoodItemModel model, FoodItem foodItem) {
             if (model.Nutrients.Any(n =>
                 (null == n.Quantity && null == n.UnitId && null == n.Percent)
              || (null != n.Quantity && null != n.UnitId && null != n.Percent)
@@ -136,16 +159,9 @@ namespace SnackAndTrack.WebApp.Controllers {
                 ModelState.AddModelError(nameof(FoodItemModel.Nutrient.UnitId), errorMessage);
                 ModelState.AddModelError(nameof(FoodItemModel.Nutrient.Percent), errorMessage);
             }
-               
+
             if (!ModelState.IsValid) {
                 return UnprocessableEntity(ModelState);
-            }
-
-            FoodItem foodItem = await SingleFoodItemBaseQuery()
-                .SingleAsync(fi => fi.Id == id);
-
-            if (null == foodItem) {
-                return NotFound();
             }
 
             await PopulateFoodItem(model, foodItem);
@@ -155,14 +171,21 @@ namespace SnackAndTrack.WebApp.Controllers {
             return NoContent();
         }
 
-        private async Task PopulateFoodItem(FoodItemModel model, FoodItem foodItem)
-        {
+        private async Task PopulateFoodItem(FoodItemModel model, FoodItem foodItem) {
+            PopulateFoodItemFields(model, foodItem);
+            await PopulateFoodItemChildren(model, foodItem);
+        }
+
+        private void PopulateFoodItemFields(FoodItemModel model, FoodItem foodItem) {
             foodItem.Name = model.Name.Trim();
             foodItem.Brand = model.Brand.Trim();
             foodItem.UsableAsRecipeIngredient = model.UsableAsRecipeIngredient;
             foodItem.UsableInFoodJournal = model.UsableInFoodJournal;
             foodItem.Notes = model.Notes?.Trim();
+            foodItem.RecipeBatchDate = model.RecipeBatchDate;
+        }
 
+        private async Task PopulateFoodItemChildren(FoodItemModel model, FoodItem foodItem) {
             await PopulateServingSizes(model, foodItem);
             await PopulateFoodItemNutrients(model, foodItem);
         }

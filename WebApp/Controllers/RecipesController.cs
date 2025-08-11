@@ -126,6 +126,7 @@ namespace SnackAndTrack.WebApp.Controllers {
               , Name = recipe.Name
               , Brand = String.Empty
               , GeneratedFrom = recipe
+              , RecipeBatchDate = DateOnly.FromDateTime(DateTime.Now)
               , UsableInFoodJournal = true
               , UsableAsRecipeIngredient = false
               , Notes = recipe.Notes

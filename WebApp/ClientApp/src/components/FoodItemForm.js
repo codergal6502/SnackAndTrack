@@ -266,7 +266,7 @@ const FoodItemForm = () => {
         // const data = await response.json();
 
         const query = `
-query ($id: Guid) {
+query ($id: Guid!) {
   foodItem(id: $id) {
     id
     name
@@ -274,6 +274,7 @@ query ($id: Guid) {
     usableAsRecipeIngredient
     usableInFoodJournal
     notes
+    recipeBatchDate
     generatedFrom {
       id
       name
@@ -285,6 +286,7 @@ query ($id: Guid) {
       nutrient {
         id
         currentDailyValue
+        name
       }
       unit {
         id
@@ -320,11 +322,14 @@ query ($id: Guid) {
           , usableAsRecipeIngredient: data.foodItem.usableAsRecipeIngredient
           , usableInFoodJournal: data.foodItem.usableInFoodJournal
           , notes: data.foodItem.notes
+          , recipeBatchDate: data.foodItem.recipeBatchDate
+          , generatedFromId: data.foodItem.generatedFrom?.id ?? null
           , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
                 isPercentUnit: parseFloat(fin.percent) ? true : false
               , quantity: parseFloat(fin.percent) ? null : fin.quantity
               , percent: fin.percent
               , nutrientId: fin.nutrient.id
+              , "-nutrientName": fin.nutrient.name
               , unitId: parseFloat(fin.percent) ? null : fin.unit.id
               , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue)
             }))
@@ -586,6 +591,18 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         styles={{width: "100%"}}
                     />
                 </div>
+                {foodItem.generatedFromId && (<div className="me-3">
+                    <label htmlFor="recipeBatchDate" className="form-label">Recipe Batch Date:</label>
+                    <input
+                        id="recipeBatchDate"
+                        name="recipeBatchDate"
+                        type='date'
+                        value={foodItem.recipeBatchDate}
+                        className="form-control"
+                        onChange={handleChange}
+                        styles={{width: "100%"}}
+                    />
+                </div>)}
             </div>
 
             <div className="mb-3">
@@ -601,8 +618,23 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     />
                 </div>
             </div>
+
+            {(foodItem.generatedFromId) && (
+                <>
+                    <h5>Actions</h5>
+                    <div className="row mb-3">
+                        <div className="col-auto align-self-end">
+                            <button type="submit" className="btn btn-primary">Save</button>
+                        </div>
+                        <div className="col-auto align-self-end">
+                            <button type="button" className="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
+                        </div>
+                    </div>
+                </>
+            )}
             
             <h5>Serving Sizes</h5>
+            {foodItem.generatedFromId && (<div className='mb-3'><em>Serving sizes cannot be edited for food items generated from recipes.</em></div>)}
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
@@ -616,54 +648,47 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         <tr key={index}>
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
-                                    {(() => {
-                                        const currentId = `servingSize-unit-${index}`;
-                                        return (
-                                            <div className='col'>
-                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
-                                                <Select
-                                                    id={currentId}
-                                                    options={(() => {
-                                                        const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(u => u.unitId).filter(typeId => typeId);
-                                                        const otherSelectedTypes = otherSelections.map(unitId => unitDictionary[unitId].type);
+                                    <div className='col'>
+                                        <label htmlFor={`servingSize-unit-${index}`} className='visually-hidden'>Unit:</label>
+                                        {((foodItem.generatedFromId) && <input className='form-control' value={unitDictionary[servingSize.unitId].name} readOnly disabled />)}
+                                        {((!foodItem.generatedFromId) && <Select
+                                            id={`servingSize-unit-${index}`}
+                                            options={(() => {
+                                                const otherSelections = foodItem.servingSizes.filter((_, idx) => idx != index).map(u => u.unitId).filter(typeId => typeId);
+                                                const otherSelectedTypes = otherSelections.map(unitId => unitDictionary[unitId].type);
 
-                                                        let ret = unitOptions.filter(grp => otherSelectedTypes.indexOf(grp.label) < 0);
-                                                        return ret;
-                                                    })()}
-                                                    isClearable
-                                                    onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
-                                                    value={unitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
-                                                    classNamePrefix="react-select"
-                                                    className={`${foodItem["-show-errors"] && servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
-                                                    placeholder="unit"
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-unitId"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
+                                                let ret = unitOptions.filter(grp => otherSelectedTypes.indexOf(grp.label) < 0);
+                                                return ret;
+                                            })()}
+                                            isClearable
+                                            onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
+                                            value={unitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
+                                            classNamePrefix="react-select"
+                                            className={`${foodItem["-show-errors"] && servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
+                                            placeholder="unit"
+                                        />)}
+                                        {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-unitId"]}</div>))}
+                                    </div>
                                 </div>
                             </td>
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
-                                    {(() => {
-                                        const currentId = `servingSize-quantity-${index}`;
-                                        return (
-                                            <div>
-                                                <label htmlFor={currentId} className='visually-hidden'>Unit:</label>
-                                                <input
-                                                    id={currentId}
-                                                    type="number"
-                                                    name="quantity"
-                                                    className={`form-control ${(foodItem["-show-errors"] && servingSize["-error-quantity"]) ? "is-invalid" : ""}`}
-                                                    value={servingSize.quantity}
-                                                    onChange={(e) => handleServingSizeChange(index, e)}
-                                                    placeholder="quantity"
-                                                    required
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-quantity"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
+                                    <div>
+                                        <label htmlFor={`servingSize-quantity-${index}`} className='visually-hidden'>Unit:</label>
+                                        <input
+                                            id={`servingSize-quantity-${index}`}
+                                            type="number"
+                                            name="quantity"
+                                            className={`form-control ${(foodItem["-show-errors"] && servingSize["-error-quantity"]) ? "is-invalid" : ""}`}
+                                            value={servingSize.quantity}
+                                            onChange={(e) => handleServingSizeChange(index, e)}
+                                            placeholder="quantity"
+                                            required
+                                            readonly={foodItem.generatedFromId}
+                                            disabled={foodItem.generatedFromId}
+                                        />
+                                        {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-quantity"]}</div>))}
+                                    </div>
                                 </div>
                             </td>
                             {!(foodItem.generatedFromId) && (
@@ -685,8 +710,8 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
             </table>
             {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= unitOptions.length} onClick={addServingSize}>Add Serving Size</button>)}
 
-
             <h5>Nutrition Information per Serving</h5>
+            {foodItem.generatedFromId && (<div className='mb-3'><em>Nutrition information cannot be edited for food items generated from recipes.</em></div>)}
             <table className='table table-striped table-bordered'>
                 <thead>
                     <tr>
@@ -701,35 +726,31 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         <tr key={index}>
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
-                                    {(() => {
-                                        const currentId = `servingSize-unit-type-${index}`;
-                                        return (
-                                            <div className="col">
-                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Nutrient</label>
-                                                <Select
-                                                    id={`foodItem-nutrient-${index}`}
-                                                    name="nutrientId"
-                                                    options={(() => {
-                                                        const otherSelections = foodItem.nutrients.filter((_, idx) => idx != index).map(n => n.nutrientId);
+                                    <div className="col">
+                                        <label htmlFor={`servingSize-unit-type-${index}`} className='visually-hidden'>Nutrient</label>
+                                        {((foodItem.generatedFromId) && <input className='form-control' value={nutrient["-nutrientName"]} readOnly disabled />)}
+                                        {((!foodItem.generatedFromId) && <Select
+                                            id={`servingSize-unit-type-${index}`}
+                                            name="nutrientId"
+                                            options={(() => {
+                                                const otherSelections = foodItem.nutrients.filter((_, idx) => idx != index).map(n => n.nutrientId);
 
-                                                        let ret = nutrientOptions.map(grp => {
-                                                            return ({ ... grp, options: grp.options.filter(opt => {
-                                                                return otherSelections.indexOf(opt.value) < 0; 
-                                                            }) })
-                                                        });
+                                                let ret = nutrientOptions.map(grp => {
+                                                    return ({ ... grp, options: grp.options.filter(opt => {
+                                                        return otherSelections.indexOf(opt.value) < 0; 
+                                                    }) })
+                                                });
 
-                                                        return ret;
-                                                    })()}
-                                                    onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
-                                                    isClearable
-                                                    value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
-                                                    classNamePrefix="react-select"
-                                                    className={`${foodItem["-show-errors"] && nutrient["-error-nutrientId"] ? 'is-invalid' : ''}`}
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-nutrientId"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
+                                                return ret;
+                                            })()}
+                                            onChange={(selectedOption) => handleNutrientSelectionChange(index, selectedOption)}
+                                            isClearable
+                                            value={nutrientOptions.map(grp => grp.options).flat(1).find(option => option.value === nutrient.nutrientId) || null}
+                                            classNamePrefix="react-select"
+                                            className={`${foodItem["-show-errors"] && nutrient["-error-nutrientId"] ? 'is-invalid' : ''}`}
+                                        />)}
+                                        {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-nutrientId"]}</div>))}
+                                    </div>
                                 </div>
                             </td>
                             <td style={{width:"33%"}}>
@@ -740,8 +761,10 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                             id={`foodItem-nutrient-${index}`}
                                             type="number"
                                             name="quantity"
+                                            readonly={foodItem.generatedFromId}
+                                            disabled={foodItem.generatedFromId}
                                             className={`form-control ${(foodItem["-show-errors"] && nutrient["-error-quantity"]) ? "is-invalid" : ""}`}
-                                            value={nutrient.percent ?? nutrient.quantity ?? 0}
+                                            value={((x) => foodItem.generatedFromId ? Math.round(x) : x)(nutrient.percent ?? nutrient.quantity ?? 0)}
                                             onChange={(e) => handleNutrientQuantityChange(index, e.target.value)}
                                             placeholder="Quantity"
                                             required
@@ -752,26 +775,22 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                             </td>
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
-                                    {(() => {
-                                        const currentId = `nutrient-unit-type-${index}`;
-                                        return (
-                                            <div className="col">
-                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Quantity Unit</label>
-                                                <Select
-                                                    id={`foodItem-nutrient-${index}`}
-                                                    name="unitId"
-                                                    options={nutrient.unitOptions}
-                                                    onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
-                                                    classNamePrefix="react-select"
-                                                    className={`${foodItem["-show-errors"] && nutrient["-error-unitId"] ? 'is-invalid' : ''}`}
-                                                    value={parseFloat(nutrient.percent) ? unitPercentOption : nutrient?.unitOptions?.find(option => {
-                                                        return option?.value === nutrient.unitId}
-                                                    ) || null}
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
+                                    <div className="col">
+                                        <label htmlFor={`foodItem-unit-type-${index}`} className='visually-hidden'>Quantity Unit</label>
+                                        {((foodItem.generatedFromId) && <input className='form-control' value={nutrient.isPercentUnit ? nutrient.percent : unitDictionary[nutrient.unitId].name} readOnly disabled />)}
+                                        {((!foodItem.generatedFromId) && <Select
+                                            id={`foodItem-unit-type-${index}`}
+                                            name="unitId"
+                                            options={nutrient.unitOptions}
+                                            onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
+                                            classNamePrefix="react-select"
+                                            className={`${foodItem["-show-errors"] && nutrient["-error-unitId"] ? 'is-invalid' : ''}`}
+                                            value={parseFloat(nutrient.percent) ? unitPercentOption : nutrient?.unitOptions?.find(option => {
+                                                return option?.value === nutrient.unitId}
+                                            ) || null}
+                                        />)}
+                                        {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
+                                    </div>
                                 </div>
                             </td>
                             {!(foodItem.generatedFromId) && (

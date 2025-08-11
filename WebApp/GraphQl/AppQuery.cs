@@ -82,7 +82,7 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .AsQueryable();
 
                     if (!String.IsNullOrEmpty(nameFilter)) {
-                        query = query.Where(ngs => ngs.Name.ToLower().Contains(Name.ToLower()));
+                        query = query.Where(ngs => ngs.Name.ToLower().Contains(nameFilter.ToLower()));
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
@@ -170,6 +170,7 @@ namespace SnackAndTrack.WebApp.GraphQl {
                     var query =
                         dbContext
                             .FoodItems
+                            .Include(fi => fi.GeneratedFrom)
                             .Include(fi => fi.ServingSizes).ThenInclude(s => s.Unit)
                             .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Unit)
                             .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)

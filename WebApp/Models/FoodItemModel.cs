@@ -13,6 +13,7 @@ namespace SnackAndTrack.WebApp.Models {
         public Guid? GeneratedFromId { get; set; }
         public required Nutrient[] Nutrients { get; set; }
         public required ServingSize[] ServingSizes { get; set; }
+        public DateOnly? RecipeBatchDate { get; set; }
 
         public class Nutrient
         {

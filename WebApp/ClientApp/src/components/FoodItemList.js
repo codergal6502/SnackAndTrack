@@ -4,10 +4,9 @@ import { Link } from 'react-router-dom';
 import Select from 'react-select';
 
 const FoodItemList = () => {
+    
     const [foodItems, setFoodItems] = useState([]);
-
     const [nameInput, setNameInput] = useState("");
-
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchParamObject, setSearchParamObject] = useState();
     const [pageCount, setPageCount] = useState(null);

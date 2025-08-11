@@ -17,8 +17,8 @@ namespace SnackAndTrack.DatabaseAccess.Entities
         public virtual required Boolean UsableAsRecipeIngredient { get; set; }
         public virtual required Boolean UsableInFoodJournal { get; set; }
         public virtual required String? Notes { get; set; }
-        [ForeignKey(nameof(Recipe.GeneratedFoodItem))]
         public virtual Recipe? GeneratedFrom { get; set; }
+        public virtual DateOnly? RecipeBatchDate { get; set; }
         public virtual required ICollection<FoodItemNutrient> FoodItemNutrients { get; set; }
         public virtual required ICollection<ServingSize> ServingSizes { get; set; }
     }

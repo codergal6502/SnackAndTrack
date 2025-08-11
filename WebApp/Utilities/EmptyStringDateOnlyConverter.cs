@@ -6,13 +6,17 @@ namespace SnackAndTrack.WebApp.Utilities {
 
     // Based on https://stackoverflow.com/a/77411561.
     public class EmptyStringDateOnlyConverter : JsonConverter<DateOnly?> {
-        public override DateOnly? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            if (reader.TokenType == JsonTokenType.String) {
+        public override DateOnly? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
                 var readString = reader.GetString();
-                if (String.IsNullOrWhiteSpace(readString)) {
+                if (String.IsNullOrWhiteSpace(readString))
+                {
                     return null;
                 }
-                else {
+                else
+                {
                     return DateOnly.Parse(readString);
                 }
             }
