@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchGraphQl, displayOrderCompareFn, useUnits, ungroupOptions, uniqueFilterFn } from '../utilties';
 import Select from 'react-select';
 
+const emptyAmountMade = { quantityUnitId: "", quantity: 0, "-unitOptions": [ ] };
+const emptyIngredient = { foodItemId: "", quantityUnitId: "", quantity: 0, "-foodItemOptions": [ ], "-unitOptions": [ ] };
+const amountMadeIsEmpty = am => "" == ((am.quantityUnitId || "").toString() + (am.quantity || "").toString()).trim();
+const ingredientIsEmpty = i => "" == ((i.foodItemId || "").toString() + (i.quantityUnitId || "").toString() + (i.quantity || "").toString()).trim();
+
 const RecipeForm = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [], amountsMade: [  ] });
     const [unitDictionary, unitOptions] = useUnits();
@@ -23,7 +28,179 @@ const RecipeForm = () => {
         }
     }, [ready, id]);
 
-    const [amountMadeUnitOptions, setAmountMadeUnitOptions] = useState([]);
+    const fetchRecipe = async (id) => {
+        const query = `
+query ($id: Guid!) {
+  recipe(id: $id) {
+    id
+    name
+    notes
+    source
+    amountsMade {
+      id
+      quantity
+      displayOrder
+      unit {
+        id
+        abbreviationCsv
+        name
+        type
+      }
+    }
+    recipeIngredients {
+      id
+      quantity
+      displayOrder
+      unit {
+        id
+        abbreviationCsv
+        name
+        type
+      }
+      foodItem {
+        id
+        name
+        brand
+        servingSizes {
+          id
+          quantity
+          displayOrder
+          unit {
+            id
+            abbreviationCsv
+            name
+            type
+          }
+        }
+      }
+    }
+  }
+}`;
+        const data = await fetchGraphQl(query, { id });
+        const recipeEntity = data.recipe;
+
+        const newRecipe = {
+            id: recipeEntity.id
+          , name: recipeEntity.name
+          , notes: recipeEntity.notes
+          , source: recipeEntity.source
+          , notes: recipeEntity.notes
+          , ingredients: (recipeEntity.recipeIngredients ?? []).toSorted(displayOrderCompareFn).map(ri => ({
+                foodItemId: ri.foodItem.id
+              , quantityUnitId: ri.unit.id
+              , quantity: ri.quantity
+              , "-foodItemOptions": [ { value: ri.foodItem.id, label: ri.foodItem.name } ]
+              , "-unitOptions": unitOptions.filter(opt => opt.label === ri.unit.type)
+            }))
+          , amountsMade: (recipeEntity.amountsMade ?? []).toSorted(displayOrderCompareFn).map(am => ({
+                quantity: am.quantity
+              , quantityUnitId: am.unit.id
+              , "-unitOptions": unitOptions.filter(opt => opt.label === am.unit.type)
+            }))
+        };
+
+        setRecipe(newRecipe);
+    };
+
+    //#region Amounts Made
+
+    const handleAmountMadeChange = (index, e) => {
+        const { name, value } = e.target;
+        const amountsMade = [...recipe.amountsMade];
+        amountsMade[index] = { ...amountsMade[index], [name]: value };
+        const newRecipe = checkEmptiesAndAddAmountMade({ ...recipe, amountsMade: amountsMade});
+        validateRecipe(newRecipe);
+        setRecipe(newRecipe);
+    }
+
+    const handleAddAmountMadeButton = async () => {
+        setRecipe({ ...recipe, amountsMade: [...recipe.amountsMade, {...emptyAmountMade}]});
+    };
+
+    const handleRemoveAmountMadeButton = (index) => {
+        const amountsMade = recipe.amountsMade.filter((_, i) => i !== index);
+        setRecipe({ ...recipe, amountsMade: amountsMade });
+    }
+
+    const handleMoveAmountMadeUpButton = (index) => {
+        if (index > 0) {
+            let amountsMade = recipe.amountsMade.slice();
+            let a = amountsMade[index];
+            amountsMade[index] = amountsMade[index - 1];
+            amountsMade[index - 1] = a;
+            setRecipe({ ...recipe, amountsMade: amountsMade});
+        }
+    }
+
+    const handleMoveAmountMadeDownButton = (index) => {
+        if (index < recipe.amountsMade.length - 1) {
+            let amountsMade = recipe.amountsMade.slice();
+            let a = amountsMade[index];
+            amountsMade[index] = amountsMade[index + 1];
+            amountsMade[index + 1] = a;
+            setRecipe({ ...recipe, amountsMade: amountsMade});
+        }
+    }
+
+    const checkEmptiesAndAddAmountMade = (newRecipe) => {
+        // If all of the amount made fields are set for all amounts, add a new one.
+        // This facilitates tabbing through.
+        const allHaveValues = newRecipe.amountsMade.reduce((acc, cur) => acc && (cur.quantityUnitId && parseFloat(cur.quantity)) ? true : false, true);
+        if (allHaveValues && newRecipe.amountsMade.length < unitOptions.length) {
+            newRecipe = {...newRecipe, amountsMade: [... newRecipe.amountsMade, {...emptyAmountMade} ]}
+        }
+        return newRecipe;
+    }
+
+    const handleAmountMadeUnitChange = async(index, unitOption) => {
+        const newAmountsMade = [...recipe.amountsMade];
+        newAmountsMade[index].quantityUnitId = unitOption.value;
+        const newRecipe = checkEmptiesAndAddAmountMade({ ...recipe, amountsMade: newAmountsMade});
+        validateRecipe(newRecipe);
+        setRecipe(newRecipe);
+    }
+
+    //#endregion
+
+    //#region Ingredients
+
+    const handleIngredientChange = (index, e) => {
+        const { name, value } = e.target;
+        const ingredients = [...recipe.ingredients];
+        ingredients[index] = { ...ingredients[index], [name]: value };
+        const newRecipe = checkEmptiesAndAddIngredient({ ...recipe, ingredients: ingredients});
+        validateRecipe(newRecipe);
+        setRecipe(newRecipe);
+    }
+
+    const handleAddIngredientButton = () => {
+        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, emptyIngredient ]});
+    };
+
+    const handleRemoveIngredientButton = (index) => {
+        const ingredients = recipe.ingredients.filter((_, i) => i !== index);
+        setRecipe({ ...recipe, ingredients: ingredients });
+    }
+
+    const handleMoveIngredientUpButton = (index) => {
+        if (index > 0) {
+            let ingredients = recipe.ingredients.slice();
+            let a = ingredients[index];
+            ingredients[index] = ingredients[index - 1];
+            ingredients[index - 1] = a;
+            setRecipe({ ...recipe, ingredients: ingredients});
+        }
+    }
+
+    const handleMoveIngredientDownButton = (index) => {
+        if (index < recipe.ingredients.length - 1) {
+            let ingredients = recipe.ingredients.slice();
+            let a = ingredients[index];
+            ingredients[index] = ingredients[index + 1];
+            ingredients[index + 1] = a;
+            setRecipe({ ...recipe, ingredients: ingredients});
+        }
+    }
 
     const fetchIngredientFoodItemOptions = async(index, q) => {
         const query = `
@@ -89,27 +266,13 @@ query foodItems($query: String) {
             const newIngredients = [... recipe.ingredients];
             newIngredients[index]["-foodItemOptions"] = options;
             const newRecipe = {...recipe, ingredients: newIngredients };
+            validateRecipe(newRecipe);
             setRecipe(newRecipe);
         }
         catch (error) {
             console.error("Request to /api/fooditems failed.", error)
         }
     };
-
-    const handleIngredientChange = (index, e) => {
-        const { name, value } = e.target;
-        const ingredients = [...recipe.ingredients];
-        ingredients[index] = { ...ingredients[index], [name]: value };
-        setRecipe({ ...recipe, ingredients: ingredients});
-    }
-
-    const handleIngredientUnitChange = async(index, unitOption) => {
-        const newIngredients = [...recipe.ingredients];
-        newIngredients[index].quantityUnitId = unitOption.value;
-
-        const newRecipe = { ...recipe, ingredients: newIngredients};
-        setRecipe(newRecipe);
-    }
 
     const handleIngredientLookupInputChange = (index, text) => {
         fetchAndSetIngredientFoodItemOptions(index, text);
@@ -122,7 +285,6 @@ query foodItems($query: String) {
             const newIngredient = {
                 ...recipe.ingredients[index]
               , foodItemId: selectedOption.value
-              , quantity: 0
               , quantityUnitId: null
               , "-unitOptions": ingredientUnitOptions
             };
@@ -130,7 +292,8 @@ query foodItems($query: String) {
             const newIngredients = [... recipe.ingredients];
             newIngredients[index] = newIngredient;
 
-            const newRecipe = {...recipe, ingredients: newIngredients};
+            const newRecipe = checkEmptiesAndAddIngredient({...recipe, ingredients: newIngredients});
+            validateRecipe(newRecipe);
             setRecipe(newRecipe);
         }
         else {
@@ -150,159 +313,26 @@ query foodItems($query: String) {
         }
     }
 
-    const fetchRecipe = async (id) => {
-        const query = `
-query ($id: Guid!) {
-  recipe(id: $id) {
-    id
-    name
-    notes
-    source
-    amountsMade {
-      id
-      quantity
-      displayOrder
-      unit {
-        id
-        abbreviationCsv
-        name
-        type
-      }
-    }
-    recipeIngredients {
-      id
-      quantity
-      displayOrder
-      unit {
-        id
-        abbreviationCsv
-        name
-        type
-      }
-      foodItem {
-        id
-        name
-        brand
-        servingSizes {
-          id
-          quantity
-          displayOrder
-          unit {
-            id
-            abbreviationCsv
-            name
-            type
-          }
-        }
-      }
-    }
-  }
-}`;
-        const data = await fetchGraphQl(query, { id });
-        const recipeEntity = data.recipe;
+    const handleIngredientUnitChange = async(index, unitOption) => {
+        const newIngredients = [...recipe.ingredients];
+        newIngredients[index].quantityUnitId = unitOption.value;
 
-        const newRecipe = {
-            id: recipeEntity.id
-          , name: recipeEntity.name
-          , notes: recipeEntity.notes
-          , source: recipeEntity.source
-          , notes: recipeEntity.notes
-          , ingredients: (recipeEntity.recipeIngredients ?? []).toSorted(displayOrderCompareFn).map(ri => ({
-                foodItemId: ri.foodItem.id
-              , foodItemName: ri.foodItem.name
-              , quantityUnitId: ri.unit.id
-              , quantityUnitType: ri.unit.type
-              , quantityUnitName: ri.unit.name
-              , quantity: ri.quantity
-              , quantityUnitTypeOptions: ri.foodItem.servingSizes.map(s => s.unit.type).filter(uniqueFilterFn)
-              , "-foodItemOptions": [ { value: ri.foodItem.id, label: ri.foodItem.name } ]
-              , "-unitOptions": unitOptions.filter(opt => opt.label === ri.unit.type)
-            }))
-          , amountsMade: (recipeEntity.amountsMade ?? []).toSorted(displayOrderCompareFn).map(am => ({
-                quantity: am.quantity
-              , quantityUnitId: am.unit.id
-              , quantityUnitName: am.unit.name
-              , quantityUnitType: am.unit.type
-              , "-unitOptions": unitOptions.filter(opt => opt.label === am.unit.type)
-            }))
-        };
-
-        setRecipe(newRecipe);
-    };
-
-    const handleAmountMadeChange = (index, e) => {
-        const { name, value } = e.target;
-        const amountsMade = [...recipe.amountsMade];
-        amountsMade[index] = { ...amountsMade[index], [name]: value };
-        setRecipe({ ...recipe, amountsMade: amountsMade});
-    }
-
-    const addAmountMade = async () => {
-        setRecipe({ ...recipe, amountsMade: [...recipe.amountsMade, { quantityUnitType: "", quantityUnitId: "", quantity: 0, "-unitOptions": [ ]}]});
-    };
-
-    const removeAmountMade = (index) => {
-        const amountsMade = recipe.amountsMade.filter((_, i) => i !== index);
-        setRecipe({ ...recipe, amountsMade: amountsMade });
-    }
-
-    const moveAmountMadeUp = (index) => {
-        if (index > 0) {
-            let amountsMade = recipe.amountsMade.slice();
-            let a = amountsMade[index];
-            amountsMade[index] = amountsMade[index - 1];
-            amountsMade[index - 1] = a;
-            setRecipe({ ...recipe, amountsMade: amountsMade});
-        }
-    }
-
-    const moveAmountMadeDown = (index) => {
-        if (index < recipe.amountsMade.length - 1) {
-            let amountsMade = recipe.amountsMade.slice();
-            let a = amountsMade[index];
-            amountsMade[index] = amountsMade[index + 1];
-            amountsMade[index + 1] = a;
-            setRecipe({ ...recipe, amountsMade: amountsMade});
-        }
-    }
-
-    const handleAmountMadeUnitChange = async(index, unitOption) => {
-        const newAmountsMade = [...recipe.amountsMade];
-        newAmountsMade[index].quantityUnitId = unitOption.value;
-        newAmountsMade[index].quantityUnitType = unitOption.unit.type;
-
-        const newRecipe = { ...recipe, amountsMade: newAmountsMade};
+        const newRecipe = checkEmptiesAndAddIngredient({ ...recipe, ingredients: newIngredients});
+        validateRecipe(newRecipe);
         setRecipe(newRecipe);
     }
 
-    const addIngredient = async () => {
-        setRecipe({ ...recipe, ingredients: [...recipe.ingredients, { foodItemName: "", foodItemId: "", quantityUnitType: "", quantityUnitId: "", quantity: 0, "-foodItemOptions": [ ], "-unitOptions": [ ] }]});
-    };
-
-    const removeIngredient = (index) => {
-        const ingredients = recipe.ingredients.filter((_, i) => i !== index);
-        setRecipe({ ...recipe, ingredients: ingredients });
-    }
-
-    const moveIngredientUp = (index) => {
-        if (index > 0) {
-            let ingredients = recipe.ingredients.slice();
-            let a = ingredients[index];
-            ingredients[index] = ingredients[index - 1];
-            ingredients[index - 1] = a;
-            setRecipe({ ...recipe, ingredients: ingredients});
+    const checkEmptiesAndAddIngredient = (newRecipe) => {
+        // If all of the ingredient fields are set for all ingredients, add a new one.
+        // This facilitates tabbing through.
+        const allHaveValues = newRecipe.ingredients.reduce((acc, cur) => acc && (cur.foodItemId && cur.quantityUnitId && parseFloat(cur.quantity)) ? true : false, true);
+        if (allHaveValues) {
+            newRecipe = {...newRecipe, ingredients: [... newRecipe.ingredients, {...emptyIngredient} ]}
         }
+        return newRecipe;
     }
 
-    const moveIngredientDown = (index) => {
-        if (index < recipe.ingredients.length - 1) {
-            let ingredients = recipe.ingredients.slice();
-            let a = ingredients[index];
-            ingredients[index] = ingredients[index + 1];
-            ingredients[index + 1] = a;
-            setRecipe({ ...recipe, ingredients: ingredients});
-        }
-    }
+    //#endregion
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -311,18 +341,27 @@ query ($id: Guid!) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const hasErrors = false;// validateAndSetRecipe(recipe);
+        const hasErrors = validateAndSetRecipe(recipe);
 
         if (!hasErrors) {
+
+            const recipeToSubmit = {
+                ...recipe
+              , amountsMade: [... recipe.amountsMade.filter(am => !amountMadeIsEmpty(am))]
+              , ingredients: [... recipe.ingredients.filter(i => !ingredientIsEmpty(i))]
+            };
+            console.log(recipeToSubmit);
+
             if (id) {
                 const response = await fetch(`/api/recipes/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(recipe),
+                    body: JSON.stringify(recipeToSubmit),
                 });
                 
+                setRecipe(recipeToSubmit);
                 navigate(`/RecipeForm/${id}`);
             } else {
                 const response = await fetch('/api/recipes', {
@@ -330,18 +369,156 @@ query ($id: Guid!) {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(recipe),
+                    body: JSON.stringify(recipeToSubmit),
                 });
 
                 const json = await response.json();
-                setRecipe({...recipe, id: json.id});
+                setRecipe({...recipeToSubmit, id: json.id});
                 navigate(`/RecipeForm/${json.id}`);
             }
         }
     };
 
+
+    const validateAndSetRecipe = (recipe) => {
+        const newRecipe = { ... recipe, "-show-errors": true };
+        validateRecipe(newRecipe);
+        
+        setRecipe(newRecipe);
+        return newRecipe["-has-errors"];
+    }
+
+    const validateRecipe = (newRecipe) => {
+        let hasErrors = false;
+
+        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
+        hasErrors = validateRecipeName(newRecipe) || hasErrors;
+        hasErrors = validateRecipeAmountsMade(newRecipe) || hasErrors;
+        hasErrors = validateIngredients(newRecipe) || hasErrors;
+
+        newRecipe["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateRecipeName = (newRecipe) => {
+        let hasErrors = false;
+
+        if (! (newRecipe.name || "").trim()) {
+            newRecipe["-error-name"] = "Recipe name is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newRecipe["-error-name"];
+        }
+
+        newRecipe["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateRecipeAmountsMade = (newRecipe) => {
+        let hasErrors = false;
+        const newAmountsMade = [... newRecipe.amountsMade];
+
+        for (const newAmountMade of newAmountsMade) {
+            hasErrors = validateAmountMade(newAmountMade) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateAmountMade = (newAmountMade) => {
+        if (amountMadeIsEmpty(newAmountMade)) {
+            // Both blank, which is not an error state.
+            return false;
+        }
+
+        let hasErrors = false;
+
+        if (! (newAmountMade.quantityUnitId || "").trim()) {
+            newAmountMade["-error-unitId"] = "Amount made unitis required.";
+            hasErrors = true;
+        }
+        else {
+            delete newAmountMade["-error-unitId"];
+        }
+
+        var quantityFloat = parseFloat(newAmountMade.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            newAmountMade["-error-quantity"] = "Amount made quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            newAmountMade["-error-quantity"] = "Amount made quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete newAmountMade["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
+
+    const validateIngredients = (newRecipe) => {
+        let hasErrors = false;
+        const newIngredients = [... newRecipe.ingredients];
+
+        for (const ingredient of newIngredients) {
+            hasErrors = validateIngredient(ingredient) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateIngredient = (newIngredient) => {
+        if (ingredientIsEmpty(newIngredient)) {
+            // Both blank, which is not an error state.
+            return false;
+        }
+
+        let hasErrors = false;
+
+        if (! (newIngredient.foodItemId || "").trim()) {
+            newIngredient["-error-foodItemId"] = "Ingredient food item is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-foodItemId"];
+        }
+
+        if (! (newIngredient.quantityUnitId || "").trim()) {
+            newIngredient["-error-unitId"] = "Ingredient unit is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-unitId"];
+        }
+
+        var quantityFloat = parseFloat(newIngredient.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            newIngredient["-error-quantity"] = "Ingredient quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            newIngredient["-error-quantity"] = "Ingredient quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
+
     return (
         <form onSubmit={handleSubmit} autoComplete="Off">
+            {(recipe["-show-errors"] && recipe["-has-errors"]) && (<div className='error-message'>Please correct any errors and try saving again.</div>)}
+
             <h4>Recipe</h4>
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -350,11 +527,11 @@ query ($id: Guid!) {
                         id="recipe-name"
                         type="text"
                         name="name"
-                        className="form-control"
+                        className={`form-control ${(recipe["-show-errors"] && recipe["-error-name"]) ? "is-invalid" : ""}`}
                         value={recipe?.name}
                         onChange={handleChange}
-                        required
                     />
+                    {(recipe["-show-errors"] && (<div className='error-message'>{recipe["-error-name"]}</div>))}
                 </div>
                 <div className="me-3">
                     <label htmlFor="recipe-source" className="form-label">Source:</label>
@@ -401,33 +578,39 @@ query ($id: Guid!) {
                                     id={`amountMade-quantity-${index}`}
                                     type="number"
                                     name="quantity"
-                                    className="form-control"
+                                    className={`form-control ${(recipe["-show-errors"] && amountMade["-error-quantity"]) ? "is-invalid" : ""}`}
                                     value={amountMade.quantity}
                                     onChange={(e) => handleAmountMadeChange(index, e)}
                                     placeholder="Quantity"
-                                    required
                                 />
+                                {(recipe["-show-errors"] && (<div className='error-message'>{amountMade["-error-quantity"]}</div>))}
                             </td>
                             <td>
                                 <label htmlFor={`amountMade-unit-${index}`} className='visually-hidden'>Unit:</label>
                                 <Select
                                     id={`amountMade-unit-${index}`}
                                     options={unitOptions.filter(grp => {
-                                        const otherTypes = recipe.amountsMade.filter((_, i) => i != index).map(am => am.quantityUnitType);
+                                        const otherTypes = recipe.amountsMade.filter((_, i) => i != index).map(am => { return unitDictionary[am.quantityUnitId]?.type; });
                                         return otherTypes.indexOf(grp.label) < 0;
                                     })}
                                     name="amountMadeUnitId"
                                     isSearchable
                                     isDisabled={false}
                                     onChange={(selectedOption) => handleAmountMadeUnitChange(index, selectedOption)}
-                                    value={unitOptions.reduce((acc, cur) => [...acc, ...cur.options], [ ]).find(option => option.value === amountMade.quantityUnitId) || null}
+                                    value={ungroupOptions(unitOptions).find(option => { 
+                                        return option.value === amountMade.quantityUnitId;
+                                    }) || null}
+                                    classNamePrefix="react-select"
+                                    className={`${recipe["-show-errors"] && amountMade["-error-unitId"] ? 'is-invalid' : ''}`}
+                                    placeholder="unit"
                                 />
+                                {(recipe["-show-errors"] && (<div className='error-message'>{amountMade["-error-unitId"]}</div>))}
                             </td>
                             <td>
                                 <div className="btn-group" role="group" aria-label="Button group">
-                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveAmountMadeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveAmountMadeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeAmountMade(index)}><i className="bi bi-trash"></i></button>
+                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => handleMoveAmountMadeUpButton(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => handleMoveAmountMadeDownButton(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => handleRemoveAmountMadeButton(index)}><i className="bi bi-trash"></i></button>
                                 </div>
                             </td>
                         </tr>
@@ -435,7 +618,7 @@ query ($id: Guid!) {
                 </tbody>
             </table>
 
-            <button type="button" className="btn btn-secondary mb-3" onClick={addAmountMade} disabled={ (recipe?.amountsMade?.length ?? 0) >= unitOptions?.length }>Add Amount Made</button>
+            <button type="button" className="btn btn-secondary mb-3" onClick={handleAddAmountMadeButton} disabled={ (recipe?.amountsMade?.length ?? 0) >= unitOptions?.length }>Add Amount Made</button>
 
             <h5>Ingredients</h5>
             <table className='table table-striped table-bordered'>
@@ -458,7 +641,10 @@ query ($id: Guid!) {
                                     onChange={selectedOption => { handleIngredientSelectionChange(index, selectedOption); }}
                                     isClearable
                                     value={ingredient["-foodItemOptions"]?.find(option => option.value === ingredient.foodItemId) || ""}
+                                    classNamePrefix="react-select"
+                                    className={`${recipe["-show-errors"] && ingredient["-error-foodItemId"] ? 'is-invalid' : ''}`}
                                 />
+                                {(recipe["-show-errors"] && (<div className='error-message'>{ingredient["-error-foodItemId"]}</div>))}
                             </td>
                             <td className="col">
                                 <label htmlFor={`ingredient-quantity-${index}`} className='visually-hidden'>Quantity</label>
@@ -466,12 +652,13 @@ query ($id: Guid!) {
                                     id={`ingredient-quantity-${index}`}
                                     type="number"
                                     name="quantity"
-                                    className="form-control"
+                                    className={`form-control ${(recipe["-show-errors"] && ingredient["-error-quantity"]) ? "is-invalid" : ""}`}
                                     value={ingredient.quantity}
                                     onChange={(e) => handleIngredientChange(index, e)}
                                     placeholder="Quantity"
                                     required
                                 />
+                                {(recipe["-show-errors"] && (<div className='error-message'>{ingredient["-error-quantity"]}</div>))}
                             </td>
                             <td className='col'>
                                 <label htmlFor={`ingredient-unit-${index}`} className='visually-hidden'>Unit:</label>
@@ -479,16 +666,18 @@ query ($id: Guid!) {
                                     id={`ingredient-unit-${index}`}
                                     options={ingredient["-unitOptions"]}
                                     name="quantityUnitId"
-                                    isClearable
                                     onChange={(selectedOption) => handleIngredientUnitChange(index, selectedOption)}
                                     value={ingredient["-unitOptions"]?.reduce((arr, cur) => [...arr, ...cur.options], [])?.find(option => option.value === ingredient.quantityUnitId) || null}
+                                    classNamePrefix="react-select"
+                                    className={`${recipe["-show-errors"] && ingredient["-error-unitId"] ? 'is-invalid' : ''}`}
                                 />
+                                {(recipe["-show-errors"] && (<div className='error-message'>{ingredient["-error-unitId"]}</div>))}
                             </td>
                             <td className="col-auto align-self-end">
                                 <div className="btn-group" role="group" aria-label="Button group">
-                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveIngredientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveIngredientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeIngredient(index)}><i className="bi bi-trash"></i></button>
+                                    <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => handleMoveIngredientUpButton(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                    <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => handleMoveIngredientDownButton(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                    <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => handleRemoveIngredientButton(index)}><i className="bi bi-trash"></i></button>
                                 </div>
                             </td>
                         </tr>
@@ -496,7 +685,7 @@ query ($id: Guid!) {
                 </tbody>
             </table>
 
-            <button type="button" className="btn btn-secondary mb-3" onClick={addIngredient}>Add Ingredient</button>
+            <button type="button" className="btn btn-secondary mb-3" onClick={handleAddIngredientButton}>Add Ingredient</button>
 
             <div className="row mb-3">
                 <div className="col-auto align-self-end">

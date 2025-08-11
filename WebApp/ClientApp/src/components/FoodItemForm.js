@@ -768,7 +768,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                         return option?.value === nutrient.unitId}
                                                     ) || null}
                                                 />
-                                                    {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
+                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
                                             </div>
                                         )
                                     })()}

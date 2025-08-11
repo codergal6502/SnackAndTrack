@@ -11,7 +11,7 @@ const fetchGraphQl = async(query, variables) => {
     return data;
 }
 
-const displayOrderCompareFn = (o1, o2) => o2.displayOrder - o1.displayOrder;
+const displayOrderCompareFn = (o1, o2) => o1.displayOrder - o2.displayOrder;
 
 const ungroupOptions = opsArray => opsArray.reduce((acc, cur) => [...acc, ...cur.options], []);
 
