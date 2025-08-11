@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+import { fetchGraphQl, displayOrderCompareFn, ungroupOptions } from '../utilties';
 import Select from 'react-select';
 
 const yesNoOptions = [{ label: "Yes", value: true }, { label: "No", value: false }];
+const unitPercent = {
+    "id": "",
+    "name": "Percent Daily Value",
+    "type": "Percent",
+    "abbreviationCsv": "%",
+}
+const unitPercentOption = { label: "Percent", value: "", unit: unitPercent, isPercentUnit: true };
 
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: '', servingSizes: [], nutrients: [], "-show-errors": false });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: null, servingSizes: [], nutrients: [], "-show-errors": false });
 
     const [unitDictionary, setUnitDictionary] = useState();
-    const [unitOptions, setUnitOptions] = useState(); // Empty 2D-array
-    const [nutrientDictionary, setNutrientDictionary] = useState({});
-    const [nutrientOptions, setNutrientOptions] = useState([]);
+    const [unitOptions, setUnitOptions] = useState();
+    const [nutrientOptions, setNutrientOptions] = useState();
+
+    const [ready, setReady] = useState();
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -24,10 +33,27 @@ const FoodItemForm = () => {
     }, []);
 
     useEffect(() => {
-        if (unitDictionary && unitOptions && id) {
+        if (unitDictionary && unitOptions && nutrientOptions) {
+            setReady(true);
+        }
+    }, [unitDictionary, unitOptions, nutrientOptions]);
+
+    useEffect(() => {
+        if (ready) {
             fetchFoodItem(id);
         }
-    }, [unitDictionary, unitOptions, id]);
+    }, [ready, id])
+
+    const generateNutrientUnitOptions = (unitId, showPercent) => {
+        const possibleUnits = Object.values(unitDictionary).filter(u => u.type == unitDictionary[unitId].type)
+    
+        let possibleOptions = possibleUnits.map(u => ({ label: u.name, value: u.id, unit: u, isPercentUnit: false }));
+        if (showPercent) {
+            possibleOptions = [unitPercentOption, ...possibleOptions];
+        }
+
+        return possibleOptions;
+    };
 
     const validateAndSetFoodItem = (foodItem) => {
         const newFoodItem = { ... foodItem, "-show-errors": true };
@@ -119,7 +145,7 @@ const FoodItemForm = () => {
                 delete nutrient["-error-nutrientId"];
             }
             
-            if (! (nutrient.unitId || "").trim()) {
+            if (! (nutrient.unitId || "").trim() && !nutrient.isPercentUnit) {
                 nutrient["-error-unitId"] = "Nutrient unit is required.";
                 hasErrors = true;
             }
@@ -127,19 +153,35 @@ const FoodItemForm = () => {
                 delete nutrient["-error-unitId"];
             }
 
-            var quantityFloat = parseFloat(nutrient.quantity);
-
-            if (isNaN(quantityFloat)) {
-                // Probably impossible.
-                nutrient["-error-quantity"] = "Nutrient quantity must be a number.";
-                hasErrors = true;
-            }
-            else if (0 >= quantityFloat) {
-                nutrient["-error-quantity"] = "Nutrient quantity must be positive.";
-                hasErrors = true;
+            if (nutrient.isPercentUnit) {
+                var percentFloat = parseFloat(nutrient.percent);
+                if (isNaN(percentFloat)) {
+                    // Probably impossible.
+                    nutrient["-error-quantity"] = "Nutrient daily value percent must be a number.";
+                    hasErrors = true;
+                }
+                else if (0 >= percentFloat) {
+                    nutrient["-error-quantity"] = "Nutrient daily value percent must be positive.";
+                    hasErrors = true;
+                }
+                else {
+                    delete nutrient["-error-quantity"];
+                }
             }
             else {
-                delete nutrient["-error-quantity"];
+                var percentFloat = parseFloat(nutrient.quantity);
+                if (isNaN(percentFloat)) {
+                    // Probably impossible.
+                    nutrient["-error-quantity"] = "Nutrient quantity must be a number.";
+                    hasErrors = true;
+                }
+                else if (0 >= percentFloat) {
+                    nutrient["-error-quantity"] = "Nutrient quantity must be positive.";
+                    hasErrors = true;
+                }
+                else {
+                    delete nutrient["-error-quantity"];
+                }
             }
         }
 
@@ -147,14 +189,28 @@ const FoodItemForm = () => {
     }
 
     const fetchNutrients = async() => {
-        let url = `/api/lookup/nutrients`
+        const query = `
+{
+  nutrients
+  {
+    id
+    name
+    defaultUnit {
+      id
+      abbreviationCsv
+      name
+      type
+      canBeFoodQuantity
+    }
+    currentDailyValue
+    group
+    displayOrder
+  }
+}`
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
-            }
+            const data = await fetchGraphQl(query)
 
-            const nutrientArray = await response.json();
+            const nutrientArray = data.nutrients.toSorted(displayOrderCompareFn);
             const nutrientGroupDictionary = Object.groupBy(nutrientArray, n => n.group);
             const groupedOptions = Object.keys(nutrientGroupDictionary).map(k => ({
                 label: k
@@ -162,14 +218,14 @@ const FoodItemForm = () => {
               , options: nutrientGroupDictionary[k].toSorted((n1, n2) => n1.displayOrder - n2.displayOrder).map(nutrient => ({
                     value: nutrient.id
                   , label: nutrient.name
+                  , nutrient: nutrient
                 }))
             })).toSorted((n1, n2) => n1.displayOrder - n2.displayOrder);
 
             setNutrientOptions(groupedOptions);
-            setNutrientDictionary(nutrientArray.reduce((result, nutrient) => { result[nutrient.id] = nutrient; return result; }, { }));
         }
         catch (error) {
-            console.error(`Request to ${url} failed.`, error)
+            console.error(error)
             setNutrientOptions([]);
         }
     }
@@ -206,14 +262,80 @@ const FoodItemForm = () => {
     }
 
     const fetchFoodItem = async (id) => {
-        const response = await fetch(`/api/fooditems/${id}`);
-        const data = await response.json();
-        setFoodItem(data);
+        // const response = await fetch(`/api/fooditems/${id}`);
+        // const data = await response.json();
 
-        // todo: what is this for?
-        data.nutrients.forEach(n => {
-            n.unitOptions = Object.values(unitDictionary).filter(u => u.type == unitDictionary[n.unitId].type).map(u => ({ label: u.name, value: u.id }));
+        const query = `
+query ($id: Guid) {
+  foodItem(id: $id) {
+    id
+    name
+    brand
+    usableAsRecipeIngredient
+    usableInFoodJournal
+    notes
+    generatedFrom {
+      id
+      name
+    }
+    foodItemNutrients {
+      quantity
+      percent
+      displayOrder
+      nutrient {
+        id
+        currentDailyValue
+      }
+      unit {
+        id
+        type
+      }
+    }
+    servingSizes {
+      quantity
+      displayOrder
+      unit {
+        id
+        type
+      }
+    }
+  }
+}`;
+        const body=JSON.stringify({query, variables: { "id": id }});
+
+        const response = await fetch('/graphql/query', {
+            method: 'POST'
+          , headers: {
+                'Content-Type': 'application/json'
+            }
+          , body: body
         });
+
+        const { data } = await response.json();
+
+        const foodItem = {
+            id: data.foodItem.id
+          , name: data.foodItem.name
+          , brand: data.foodItem.brand
+          , usableAsRecipeIngredient: data.foodItem.usableAsRecipeIngredient
+          , usableInFoodJournal: data.foodItem.usableInFoodJournal
+          , notes: data.foodItem.notes
+          , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
+                isPercentUnit: parseFloat(fin.percent) ? true : false
+              , quantity: parseFloat(fin.percent) ? null : fin.quantity
+              , percent: fin.percent
+              , nutrientId: fin.nutrient.id
+              , unitId: parseFloat(fin.percent) ? null : fin.unit.id
+              , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue)
+            }))
+          , servingSizes: (data.foodItem?.servingSizes?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(s => ({
+                unitId: s.unit.id
+              , unitType: s.unit.type
+              , quantity: s.quantity
+            }))
+        };
+
+        setFoodItem(foodItem);
     };
 
     const handleChange = (e) => {
@@ -283,22 +405,29 @@ const FoodItemForm = () => {
         }
     }
 
-    const handleNutrientChange = (index, e) => {
-        const { name, value } = e.target;
+    const handleNutrientQuantityChange = (index, value) => {
         const nutrients = [...foodItem.nutrients];
-        nutrients[index] = { ...nutrients[index], [name]: value };
+        const currentNutrient = nutrients[index];
+        if (currentNutrient.isPercentUnit) {
+            nutrients[index] = { ...nutrients[index], quantity: null, percent: value };
+        }
+        else {
+            nutrients[index] = { ...nutrients[index], quantity: value, percent: null };
+        }
         setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
     const handleNutrientSelectionChange = (index, selectedOption) => {
         if (selectedOption) {
-            const selectedNutrient = nutrientDictionary[selectedOption.value];
-            const possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
+            const selectedNutrient = selectedOption.nutrient;
+            let possibleUnits = Object.values(unitDictionary).filter(u => u.type == selectedNutrient.defaultUnit.type);
 
             const newNutrients = [ ...foodItem.nutrients];
             newNutrients[index].nutrientId = selectedOption?.value;
             newNutrients[index].unitId = selectedNutrient.defaultUnit.id;
-            newNutrients[index].unitOptions = possibleUnits.toSorted((u1, u2) => u1.displayOrder - u2.displayOrder).map(u => ({ label: u.name, value: u.id }));
+
+            newNutrients[index].unitOptions = generateNutrientUnitOptions(selectedNutrient.defaultUnit.id, selectedNutrient.currentDailyValue);
+
             const newFoodItem = { ...foodItem, nutrients: newNutrients };
             setFoodItem(newFoodItem);
         }
@@ -314,12 +443,23 @@ const FoodItemForm = () => {
     const handleNutrientUnitChange = (selectedOption, index) => {
         const newNutrients = [ ...foodItem.nutrients];
         newNutrients[index].unitId = selectedOption?.value;
+
+        newNutrients[index].isPercentUnit = selectedOption.isPercentUnit;
+        if (selectedOption.isPercentUnit) {
+            newNutrients[index].percent = newNutrients[index].percent ?? newNutrients[index].quantity ?? 0;
+            newNutrients[index].quantity = null;
+        }
+        else {
+            newNutrients[index].quantity = newNutrients[index].quantity ?? newNutrients[index].percent ?? 0;
+            newNutrients[index].percent = null;
+        }
+
         const newFoodItem = { ...foodItem, nutrients: newNutrients };
         setFoodItem(newFoodItem);
     };
 
     const addNutrient = () => {
-        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, nutrientId: null, unitId: null }] });
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, percent: null, nutrientId: null, unitId: null }] });
     };
 
     const removeNutrient = (index) => {
@@ -395,9 +535,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
         navigate(e.currentTarget.pathname);
     };
 
-    return unitOptions && nutrientOptions && (
-        <>
-        {(foodItem.generatedFromId) && ( <div>This food item was generated from the recipe for <a href={`/recipeform/${foodItem.generatedFromId}`} onClick={(e) => handleAnchorClick(e)}>{foodItem.generatedFromName}</a> and cannot be edited.</div> )}
+    return ready && (
         <form autoComplete="off" onSubmit={handleSubmit}>
             <h4>Food Item</h4>
             {(foodItem["-show-errors"] && foodItem["-has-errors"]) && (<div className='error-message'>Please correct any errors and try saving again.</div>)}
@@ -596,25 +734,20 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                             </td>
                             <td style={{width:"33%"}}>
                                 <div className="form-group">
-                                    {(() => {
-                                        const currentId = `servingSize-unit-type-${index}`;
-                                        return (
-                                            <div className="col">
-                                                <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Quantity</label>
-                                                <input
-                                                    id={`foodItem-nutrient-${index}`}
-                                                    type="number"
-                                                    name="quantity"
-                                                    className={`form-control ${(foodItem["-show-errors"] && nutrient["-error-quantity"]) ? "is-invalid" : ""}`}
-                                                    value={nutrient.quantity}
-                                                    onChange={(e) => handleNutrientChange(index, e)}
-                                                    placeholder="Quantity"
-                                                    required
-                                                />
-                                                {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-quantity"]}</div>))}
-                                            </div>
-                                        )
-                                    })()}
+                                    <div className="col">
+                                        <label htmlFor={`foodItem-nutrient-${index}`} className='visually-hidden'>Quantity</label>
+                                        <input
+                                            id={`foodItem-nutrient-${index}`}
+                                            type="number"
+                                            name="quantity"
+                                            className={`form-control ${(foodItem["-show-errors"] && nutrient["-error-quantity"]) ? "is-invalid" : ""}`}
+                                            value={nutrient.percent ?? nutrient.quantity ?? 0}
+                                            onChange={(e) => handleNutrientQuantityChange(index, e.target.value)}
+                                            placeholder="Quantity"
+                                            required
+                                        />
+                                        {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-quantity"]}</div>))}
+                                    </div>
                                 </div>
                             </td>
                             <td style={{width:"33%"}}>
@@ -629,10 +762,11 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                     name="unitId"
                                                     options={nutrient.unitOptions}
                                                     onChange={(selectedOption) => handleNutrientUnitChange(selectedOption, index)}
-                                                    isClearable
                                                     classNamePrefix="react-select"
                                                     className={`${foodItem["-show-errors"] && nutrient["-error-unitId"] ? 'is-invalid' : ''}`}
-                                                    value={nutrient?.unitOptions?.find(option => option.value === nutrient.unitId) || null}
+                                                    value={parseFloat(nutrient.percent) ? unitPercentOption : nutrient?.unitOptions?.find(option => {
+                                                        return option?.value === nutrient.unitId}
+                                                    ) || null}
                                                 />
                                                     {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-unitId"]}</div>))}
                                             </div>
@@ -661,7 +795,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                 <>
                     <div className="row mb-3">
                         <div className="col-auto align-self-end">
-                            <button type="button" className="btn btn-secondary" disabled={foodItem.nutrients.length >= Object.keys(nutrientDictionary).length} onClick={addNutrient}>Add Nutrient</button>
+                            <button type="button" className="btn btn-secondary" disabled={foodItem.nutrients.length >= ungroupOptions(nutrientOptions).length} onClick={addNutrient}>Add Nutrient</button>
                         </div>
                     </div>
                     <h5>Actions</h5>
@@ -676,7 +810,6 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                 </>
             )}
         </form>
-        </>
     );
 };
 

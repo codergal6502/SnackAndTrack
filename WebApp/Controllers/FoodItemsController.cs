@@ -86,6 +86,7 @@ namespace SnackAndTrack.WebApp.Controllers {
                     Quantity = fin.Quantity
                   , NutrientId = fin.Nutrient.Id
                   , UnitId = fin.Unit.Id
+                  , Percent = fin.Percent
                 }).ToArray()
               , ServingSizes = (null == foodItem.ServingSizes) ? [] : foodItem.ServingSizes.Select(s => new FoodItemModel.ServingSize {
                     UnitId = s.Unit.Id
@@ -120,18 +121,30 @@ namespace SnackAndTrack.WebApp.Controllers {
 
         // PUT: api/FoodItems/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutFoodItem(Guid id, FoodItemModel model)
-        {
-            if (id != model.Id)
-            {
+        public async Task<IActionResult> PutFoodItem(Guid id, FoodItemModel model) {
+            if (id != model.Id) {
                 return BadRequest();
+            }
+            
+            if (model.Nutrients.Any(n =>
+                (null == n.Quantity && null == n.UnitId && null == n.Percent)
+             || (null != n.Quantity && null != n.UnitId && null != n.Percent)
+             || (null != n.Quantity ^ null != n.UnitId)
+            )) {
+                var errorMessage = $"Either both ${nameof(FoodItemModel.Nutrient.Quantity)} and ${nameof(FoodItemModel.Nutrient.UnitId)} or ${nameof(FoodItemModel.Nutrient.Percent)} must be provided.";
+                ModelState.AddModelError(nameof(FoodItemModel.Nutrient.Quantity), errorMessage);
+                ModelState.AddModelError(nameof(FoodItemModel.Nutrient.UnitId), errorMessage);
+                ModelState.AddModelError(nameof(FoodItemModel.Nutrient.Percent), errorMessage);
+            }
+               
+            if (!ModelState.IsValid) {
+                return UnprocessableEntity(ModelState);
             }
 
             FoodItem foodItem = await SingleFoodItemBaseQuery()
                 .SingleAsync(fi => fi.Id == id);
 
-            if (null == foodItem)
-            {
+            if (null == foodItem) {
                 return NotFound();
             }
 
@@ -191,36 +204,48 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
         }
 
-        private async Task PopulateFoodItemNutrients(FoodItemModel model, FoodItem foodItem)
-        {
+        private async Task PopulateFoodItemNutrients(FoodItemModel model, FoodItem foodItem) {
             List<FoodItemModel.Nutrient> nutrientModels = model.Nutrients.ToList();
             List<FoodItemNutrient> existingFoodItemNutrients = foodItem.FoodItemNutrients.ToList();
 
-            foreach (var i in nutrientModels.Select((x, i) => new { NutrientModel = x, Index = (Int16) i }))
-            {
+            foreach (var i in nutrientModels.Select((x, i) => new { NutrientModel = x, Index = (Int16) i })) {
                 var existingFoodItemNutrient = existingFoodItemNutrients.SingleOrDefault(fin => fin.Nutrient.Id == i.NutrientModel.NutrientId);
 
-                Unit unit = await _context.Units.FindAsync(i.NutrientModel.UnitId) ?? throw new SnackAndTrackControllerException($"Could not find unit with ID {i.NutrientModel.UnitId}.");
+                Unit unit;
+                Nutrient nutrient =
+                    existingFoodItemNutrient?.Nutrient
+                 ?? await _context.Nutrients.FindAsync(i.NutrientModel.NutrientId)
+                 ?? throw new SnackAndTrackControllerException($"Could not find nutrient with ID {i.NutrientModel.NutrientId}");
+                Single quantity;
 
-                if (null == existingFoodItemNutrient)
-                {
-                    Nutrient nutrient = await _context.Nutrients.FindAsync(i.NutrientModel.NutrientId) ?? throw new SnackAndTrackControllerException($"Could not find nutrient with ID {i.NutrientModel.NutrientId}");
+                if (i.NutrientModel.UnitId != null && i.NutrientModel.Quantity != null && i.NutrientModel.Percent == null) {
+                    unit = await _context.Units.FindAsync(i.NutrientModel.UnitId) ?? throw new SnackAndTrackControllerException($"Could not find unit with ID {i.NutrientModel.UnitId}.");
+                    quantity = i.NutrientModel.Quantity.Value;
+                }
+                else if (i.NutrientModel.Percent != null && nutrient.CurrentDailyValue != null && i.NutrientModel.UnitId == null && i.NutrientModel.Quantity == null) {
+                    unit = nutrient.DefaultUnit;
+                    quantity = (Single) (nutrient.CurrentDailyValue.Value * i.NutrientModel.Percent.Value / 100.0);
+                }
+                else {
+                    throw new SnackAndTrackControllerException("Invalid combination of nutrient daily value, food item nutrient unit, food item nutrient quantity, food item nutrient and percent.");
+                }
 
-                    foodItem.FoodItemNutrients.Add(new FoodItemNutrient
-                    {
+                if (null == existingFoodItemNutrient) {
+                    foodItem.FoodItemNutrients.Add(new FoodItemNutrient {
                         Id = new Guid()
                       , FoodItem = foodItem
                       , Nutrient = nutrient
-                      , Quantity = i.NutrientModel.Quantity
+                      , Quantity = quantity
                       , DisplayOrder = i.Index
                       , Unit = unit
+                      , Percent = i.NutrientModel.Percent
                     });
                 }
-                else
-                {
-                    existingFoodItemNutrient.Quantity = i.NutrientModel.Quantity;
+                else {
+                    existingFoodItemNutrient.Quantity = quantity;
                     existingFoodItemNutrient.DisplayOrder = i.Index;
                     existingFoodItemNutrient.Unit = unit;
+                    existingFoodItemNutrient.Percent = i.NutrientModel.Percent;
 
                     // Any that are left at the end should be removed from the database.
                     existingFoodItemNutrients.Remove(existingFoodItemNutrient);
@@ -228,8 +253,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             }
 
             // Any that are left at the end should be removed from the database.
-            foreach (var fin in existingFoodItemNutrients)
-            {
+            foreach (var fin in existingFoodItemNutrients) {
                 foodItem.FoodItemNutrients.Remove(fin);
                 this._context.Remove(fin);
             }
@@ -237,11 +261,9 @@ namespace SnackAndTrack.WebApp.Controllers {
 
         // DELETE: api/FoodItems/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteFoodItem(Guid id)
-        {
+        public async Task<IActionResult> DeleteFoodItem(Guid id) {
             var foodItem = await this._context.FoodItems.FindAsync(id);
-            if (foodItem == null)
-            {
+            if (foodItem == null) {
                 return NotFound();
             }
 

@@ -4,7 +4,8 @@ using SnackAndTrack.DatabaseAccess.Entities;
 namespace SnackAndTrack.WebApp.GraphQl
 {
     public class FoodItemGraphType : ObjectGraphType<FoodItem> {
-        public FoodItemGraphType() {
+        public FoodItemGraphType()
+        {
             Field(x => x.Id);
             Field(x => x.Name);
             Field(x => x.Brand);
@@ -13,6 +14,7 @@ namespace SnackAndTrack.WebApp.GraphQl
             Field(x => x.Notes);
             Field<ListGraphType<ServingSizeGraphType>>(nameof(FoodItem.ServingSizes)).Resolve(context => context.Source.ServingSizes);
             Field<ListGraphType<FoodItemNutrientGraphType>>(nameof(FoodItem.FoodItemNutrients)).Resolve(context => context.Source.FoodItemNutrients);
+            Field<RecipeGraphType>(nameof(FoodItem.GeneratedFrom)).Resolve(context => context.Source.GeneratedFrom);
         }
     }
     
@@ -33,6 +35,7 @@ namespace SnackAndTrack.WebApp.GraphQl
             Field<UnitGraphType>(nameof(FoodItemNutrient.Unit)).Resolve(context => context.Source.Unit);
             Field(x => x.Quantity);
             Field(x => x.DisplayOrder);
+            Field(x => x.Percent);
         }
     }
 }

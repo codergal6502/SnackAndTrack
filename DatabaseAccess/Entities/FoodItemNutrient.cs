@@ -11,5 +11,6 @@ namespace SnackAndTrack.DatabaseAccess.Entities {
         public virtual required Unit Unit { get; set; }
         public virtual required Single Quantity { get; set; }
         public virtual required Int16 DisplayOrder { get; set; }
+        public virtual required Single? Percent { get; set; }
     }
 }

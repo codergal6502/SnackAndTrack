@@ -6,7 +6,8 @@ using SnackAndTrack.DatabaseAccess.Entities;
 
 namespace SnackAndTrack.WebApp.GraphQl {
     public class AppQuery : ObjectGraphType {
-        public AppQuery(SnackAndTrackDbContext dbContext) {
+        public AppQuery(SnackAndTrackDbContext dbContext)
+        {
             // Field<FoodJournalEntriesResponse>(nameof(SnackAndTrackDbContext.FoodJournalEntries)).Resolve(ctx => new FoodJournalEntriesResponse { });
             Field<FoodJournalEntriesResponseGraphType>(nameof(SnackAndTrackDbContext.FoodJournalEntries))
                 .Argument<DateOnlyGraphType>(nameof(FoodJournalEntry.Date), $"Filter by {nameof(FoodJournalEntry.Date)}")
@@ -14,7 +15,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
                 .Argument<EnumerationGraphType<SortOrder>>("sortOrder")
                 .Argument<EnumerationGraphType<FoodJournalEntriesortBy>>("sortBy")
-                .Resolve(context => {
+                .Resolve(context =>
+                {
                     var dateFilter = context.GetArgument<DateOnly?>(nameof(FoodJournalEntry.Date));
                     var page = context.GetArgument<int?>("page") ?? 1;
                     var pageSize = context.GetArgument<int?>("pageSize") ?? 10;
@@ -28,13 +30,15 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .Include(fje => fje.Unit)
                             .AsQueryable();
 
-                    if (null != dateFilter) {
+                    if (null != dateFilter)
+                    {
                         query = query.Where(fje => fje.Date == dateFilter);
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
 
-                    switch (context.GetArgument<FoodJournalEntriesortBy?>("sortBy") ?? FoodJournalEntriesortBy.Time) {
+                    switch (context.GetArgument<FoodJournalEntriesortBy?>("sortBy") ?? FoodJournalEntriesortBy.Time)
+                    {
                         case FoodJournalEntriesortBy.Time:
                         default:
                             query = ascending ? query.OrderBy(j => j.Time).ThenBy(j => j.Id) : query.OrderByDescending(j => j.Time).ThenByDescending(t => t.Id);
@@ -77,13 +81,15 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .Include(r => r.RecipeIngredients).ThenInclude(ri => ri.Unit)
                             .AsQueryable();
 
-                    if (!String.IsNullOrEmpty(nameFilter)) {
+                    if (!String.IsNullOrEmpty(nameFilter))
+                    {
                         query = query.Where(ngs => ngs.Name.ToLower().Contains(Name.ToLower()));
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
 
-                    switch (context.GetArgument<RecipeSortBy?>("sortBy") ?? RecipeSortBy.Name) {
+                    switch (context.GetArgument<RecipeSortBy?>("sortBy") ?? RecipeSortBy.Name)
+                    {
                         case RecipeSortBy.Name:
                         default:
                             query = ascending ? query.OrderBy(r => r.Name).ThenBy(r => r.Id) : query.OrderByDescending(r => r.Name).ThenByDescending(r => r.Id);
@@ -123,13 +129,15 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .Include(ngs => ngs.NutritionGoalSetNutrients).ThenInclude(ngsSn => ngsSn.NutritionGoalSetNutrientTargets)
                             .AsQueryable();
 
-                    if (!String.IsNullOrEmpty(nameFilter)) {
+                    if (!String.IsNullOrEmpty(nameFilter))
+                    {
                         query = query.Where(ngs => ngs.Name.ToLower().Contains(Name.ToLower()));
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
 
-                    switch (context.GetArgument<NutritionGoalSetSortBy?>("sortBy") ?? NutritionGoalSetSortBy.Name) {
+                    switch (context.GetArgument<NutritionGoalSetSortBy?>("sortBy") ?? NutritionGoalSetSortBy.Name)
+                    {
                         case NutritionGoalSetSortBy.Name:
                         default:
                             query = ascending ? query.OrderBy(ngs => ngs.Name).ThenBy(ngs => ngs.Id) : query.OrderByDescending(ngs => ngs.Name).ThenByDescending(ngs => ngs.Id);
@@ -154,11 +162,12 @@ namespace SnackAndTrack.WebApp.GraphQl {
                 .Argument<StringGraphType>("Query", $"Filter by multiple fields.")
                 .Argument<IntGraphType>("page", "Page number for pagination")
                 .Argument<IntGraphType>("pageSize", "Number of items per page")
-                .Argument<BooleanGraphType>(nameof(FoodItem.UsableAsRecipeIngredient),$"Filter by {nameof(FoodItem.UsableAsRecipeIngredient)}")
+                .Argument<BooleanGraphType>(nameof(FoodItem.UsableAsRecipeIngredient), $"Filter by {nameof(FoodItem.UsableAsRecipeIngredient)}")
                 .Argument<BooleanGraphType>(nameof(FoodItem.UsableInFoodJournal), $"Filter by {nameof(FoodItem.UsableInFoodJournal)}")
                 .Argument<EnumerationGraphType<SortOrder>>("sortOrder")
                 .Argument<EnumerationGraphType<FoodItemSortBy>>("sortBy")
-                .Resolve(context => {
+                .Resolve(context =>
+                {
                     var nameFilter = context.GetArgument<String>(nameof(FoodItem.Name))?.ToLower();
                     var textFilter = context.GetArgument<String>("Query")?.ToLower();
                     var page = context.GetArgument<int?>("page") ?? 1;
@@ -174,25 +183,30 @@ namespace SnackAndTrack.WebApp.GraphQl {
                             .Include(fi => fi.FoodItemNutrients).ThenInclude(fin => fin.Nutrient)
                             .AsQueryable();
 
-                    if (!String.IsNullOrEmpty(textFilter)) {
+                    if (!String.IsNullOrEmpty(textFilter))
+                    {
                         query = query.Where(f => f.Name.ToLower().Contains(textFilter) || f.Brand.ToLower().Contains(textFilter));
                     }
 
-                    if (!String.IsNullOrEmpty(nameFilter)) {
+                    if (!String.IsNullOrEmpty(nameFilter))
+                    {
                         query = query.Where(f => f.Name.ToLower().Contains(nameFilter));
                     }
 
-                    if (usableAsRecipeIngredientFilter.HasValue) {
+                    if (usableAsRecipeIngredientFilter.HasValue)
+                    {
                         query = query.Where(f => usableAsRecipeIngredientFilter == f.UsableAsRecipeIngredient);
                     }
-                    
-                    if (usableInFoodJournalFilter.HasValue) {
+
+                    if (usableInFoodJournalFilter.HasValue)
+                    {
                         query = query.Where(f => usableInFoodJournalFilter == f.UsableInFoodJournal);
                     }
 
                     bool ascending = context.GetArgument<SortOrder?>("sortOrder") != SortOrder.Descending;
 
-                    switch (context.GetArgument<FoodItemSortBy?>("sortBy") ?? FoodItemSortBy.Name) {
+                    switch (context.GetArgument<FoodItemSortBy?>("sortBy") ?? FoodItemSortBy.Name)
+                    {
                         case FoodItemSortBy.Name:
                         default:
                             query = ascending ? query.OrderBy(fi => fi.Name).ThenBy(fi => fi.Id) : query.OrderByDescending(fi => fi.Name).ThenByDescending(fi => fi.Id);
@@ -221,7 +235,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
 
             Field<FoodItemGraphType>(nameof(FoodItem))
                 .Argument<GuidGraphType>(nameof(FoodItem.Id), $"{nameof(FoodItem.Id)} of {nameof(FoodItem)} to retrieve.")
-                .ResolveAsync(async context => {
+                .ResolveAsync(async context =>
+                {
                     var id = context.GetArgument<Guid?>(nameof(FoodItem.Id));
 
                     return await dbContext
@@ -233,15 +248,29 @@ namespace SnackAndTrack.WebApp.GraphQl {
                         .SingleOrDefaultAsync(fi => fi.Id == id);
                 });
 
+            #region Lookups
+
             Field<ListGraphType<UnitGraphType>>(nameof(SnackAndTrackDbContext.Units))
                 .Resolve(context => {
-                   var query =
-                        dbContext
-                            .Units
-                            .Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
-                            .AsQueryable();
+                    var query =
+                         dbContext
+                             .Units
+                             .Include(u => u.FromUnitConversions).ThenInclude(c => c.ToUnit)
+                             .AsQueryable();
                     return query.ToList();
                 });
+
+            Field<ListGraphType<NutrientGraphType>>(nameof(SnackAndTrackDbContext.Nutrients))
+                .Resolve(context => {
+                    var query =
+                         dbContext
+                             .Nutrients
+                             .Include(n => n.DefaultUnit);
+
+                    return query.ToList();
+                });
+                
+            #endregion Lookuips
         }
     }
 }

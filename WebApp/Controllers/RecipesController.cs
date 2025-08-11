@@ -148,6 +148,7 @@ namespace SnackAndTrack.WebApp.Controllers {
               , FoodItem = foodItem
               , Nutrient = _context.Nutrients.Single(n => n.Id == ns.NutrientId)
               , Quantity = ns.TotalQuantity
+              , Percent = null
             }).ToArray();
 
             _context.Add(foodItem);
