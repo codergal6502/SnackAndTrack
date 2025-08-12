@@ -128,7 +128,7 @@ const FoodJournal = () => {
     const fetchFoodItems = async (qName) => {
         const query = `
 query GetFoodItems($qName: String!) {
-  foodItems(name: $qName) {
+  foodItems(name: $qName, usableInFoodJournal: true) {
     items {
       id
       name
