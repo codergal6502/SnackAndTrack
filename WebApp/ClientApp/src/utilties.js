@@ -81,4 +81,24 @@ const useUnits = () => {
     return [unitDictionary, unitOptions];
 };
 
-export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits };
+const yesNoOptions = [{ label: "Yes", value: true }, { label: "No", value: false }];
+
+const copyWithoutNullValues = (obj) => Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== null)); // https://stackoverflow.com/a/38340730, modified with !== rather than !=
+
+const objectFromSearchParams = (sp) => {
+    let ret = { };
+    const spObject = Object.fromEntries(sp);
+
+    for (const key of Object.keys(spObject)) {
+        /** @type {String} */ const value = spObject[key];
+        if ("true" === value.trim().toLowerCase()) { ret[key] = true; }
+        else if ("false" === value.trim().toLowerCase()) { ret[key] = false; }
+        else if (parseFloat(value)) { ret[key] = parseFloat(value); }
+        else if (parseInt(value)) { ret[key] = parseInt(value); }
+        else { ret[key] = value; }
+    }
+
+    return ret;
+}
+
+export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits, yesNoOptions, copyWithoutNullValues, objectFromSearchParams };

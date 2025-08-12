@@ -118,7 +118,7 @@ const RecipeCompute = () => {
                     </tr>
                 </tbody>
             </table>
-            <button type="button" className='btn btn-primary' onClick={() => handleCompute(id)}>Generate Table</button>
+            <button type="button" className='btn btn-primary mb-3' onClick={() => handleCompute(id)}>Generate Table</button>
             {showNutritionTable && (
                 <>
                     <h5>Nutrition</h5>

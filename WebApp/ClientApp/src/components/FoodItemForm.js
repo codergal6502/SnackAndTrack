@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { fetchGraphQl, displayOrderCompareFn, ungroupOptions } from '../utilties';
+import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions } from '../utilties';
 import Select from 'react-select';
 
-const yesNoOptions = [{ label: "Yes", value: true }, { label: "No", value: false }];
 const unitPercent = {
     "id": "",
     "name": "Percent Daily Value",
@@ -358,7 +357,7 @@ query ($id: Guid!) {
               , nutrientId: fin.nutrient.id
               , "-nutrientName": fin.nutrient.name
               , unitId: parseFloat(fin.percent) ? null : fin.unit.id
-              , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue)
+              , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue) // TODO: maybe make all these "add-on" things "-property" by convention and then don't send them to the backend.
             }))
           , servingSizes: (data.foodItem?.servingSizes?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(s => ({
                 unitId: s.unit.id
@@ -644,11 +643,11 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     />
                 </div>
                 <div className="me-3">
-                    <label htmlFor="useableInRecipe" className="form-label">Usable in Food Journal:</label>
+                    <label htmlFor="usableInFoodJournal" className="form-label">Usable in Food Journal:</label>
                     <Select
-                        id="useableInRecipe"
+                        id="usableInFoodJournal"
                         options={yesNoOptions}
-                        name="useableInRecipe"
+                        name="usableInFoodJournal"
                         value={yesNoOptions.filter(opt => opt.value == foodItem.usableInFoodJournal)}
                         onChange={selectedOptions => { handleUsableInFoodJournalChange(selectedOptions) }}
                         styles={{width: "100%"}}

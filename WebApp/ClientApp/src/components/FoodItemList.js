@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import Select from 'react-select';
+import { yesNoOptions, copyWithoutNullValues, objectFromSearchParams } from '../utilties';
 
 const FoodItemList = () => {
     
@@ -14,15 +15,28 @@ const FoodItemList = () => {
     useEffect(() => {
         if (searchParamObject) {
             fetchFoodItems();
+            setSearchParams(copyWithoutNullValues(searchParamObject));
         }
     }, [searchParamObject]);
 
     useEffect(() => {
         if (searchParams) {
-            var newSearchParamObject = Object.fromEntries(searchParams);
-            var defaultSearchParamObject = { name: "", page: 1, pageSize: 20, sortOrder: "ASCENDING", sortBy: "NAME" };
-            newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
-            setSearchParamObject(newSearchParamObject);
+            if (!searchParamObject) {
+                var newSearchParamObject = objectFromSearchParams(searchParams);
+                
+                var defaultSearchParamObject = {
+                    name: ""
+                  , page: 1
+                  , pageSize: 20
+                  , useableInRecipe: null
+                  , usableInFoodJournal: null
+                  , sortOrder: "ASCENDING"
+                  , sortBy: "NAME"
+                };
+    
+                newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
+                setSearchParamObject(newSearchParamObject);
+            }
         }
     }, [searchParams]);
 
@@ -31,13 +45,15 @@ const FoodItemList = () => {
 
     const fetchFoodItems = async () => {
         const query = `
-query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!, $name: String) {
+query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: FoodItemSortBy!, $name: String, $usableInFoodJournal: Boolean, $usableAsRecipeIngredient: Boolean) {
   foodItems(
     page: $page
     pageSize: $pageSize
     sortOrder: $sortOrder
     sortBy: $sortBy
     name: $name
+    usableInFoodJournal: $usableInFoodJournal
+    usableAsRecipeIngredient: $usableAsRecipeIngredient
   ) {
     totalCount
     totalPages
@@ -58,26 +74,21 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
       }
     }
   }
-}
-        `;
-        setSearchParams({
-            page: parseInt(searchParamObject.page)
-          , pageSize: parseInt(searchParamObject.pageSize)
-          , sortOrder: searchParamObject.sortOrder
-          , sortBy: searchParamObject.sortBy
-          , name: searchParamObject.name
-        });
-        setNameInput(searchParamObject.name);
+}`;
+
         const body=JSON.stringify({
             query
           , variables: {
                 page: parseInt(searchParamObject.page)
               , pageSize: parseInt(searchParamObject.pageSize)
-              , sortOrder: searchParamObject.sortOrder
               , sortBy: searchParamObject.sortBy
+              , sortOrder: searchParamObject.sortOrder
               , name: searchParamObject.name
+              , usableAsRecipeIngredient: searchParamObject.usableAsRecipeIngredient
+              , usableInFoodJournal: searchParamObject.usableInFoodJournal
             },
         });
+
         const response = await fetch('/graphql/query', {
             method: 'POST'
           , headers: {
@@ -94,6 +105,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
     const searchTextTimeoutIdList = useRef([ ]);
 
     const debouncedSearchTextChange = async (q) => {
+        // This technically isn't debounding since each separate keystroke is a new, intentional press of the button.
         console.log("fetch", q);
         setSearchParamObject({... searchParamObject, name: q});
     }
@@ -119,6 +131,30 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         value={nameInput}
                         className='form-control'
                         onChange={(e) => { searchTextChange(e.target.value); }}
+                    />
+                </div>
+                    <div className="me-3">
+                    <label htmlFor="usableAsRecipeIngredient" className="form-label">Usable in Recipe:</label>
+                    <Select
+                        id="usableAsRecipeIngredient"
+                        options={yesNoOptions}
+                        name="usableAsRecipeIngredient"
+                        value={yesNoOptions.filter(opt => opt.value == searchParamObject.usableAsRecipeIngredient)}
+                        onChange={selectedOption => { setSearchParamObject({... searchParamObject, usableAsRecipeIngredient: selectedOption?.value}); }}
+                        styles={{width: "100%"}}
+                        isClearable
+                    />
+                </div>
+                <div className="me-3">
+                    <label htmlFor="usableInFoodJournal" className="form-label">Usable in Food Journal:</label>
+                    <Select
+                        id="usableInFoodJournal"
+                        options={yesNoOptions}
+                        name="usableInFoodJournal"
+                        value={yesNoOptions.filter(opt => opt.value == searchParamObject.usableInFoodJournal)}
+                        onChange={selectedOption => { setSearchParamObject({... searchParamObject, usableInFoodJournal: selectedOption?.value}); }}
+                        styles={{width: "100%"}}
+                        isClearable
                     />
                 </div>
                 <div className="me-3">
