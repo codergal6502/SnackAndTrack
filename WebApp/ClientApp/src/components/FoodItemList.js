@@ -116,9 +116,6 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
         setNameInput(q);
     }
 
-    // TODO: view components should let you scale recipes, servings, etc. up and down
-    // ';k;l 30 j'kl12039u49 3jfadsjd;lsfa 3
-
     return searchParamObject && (
         <div>
             <h1>Food Items</h1>
