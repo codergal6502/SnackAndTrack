@@ -108,7 +108,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
     return searchParamObject && (
         <form autoComplete='Off'>
             <h1>Food Items</h1>
-            <Link to="/fooditemform" className="btn btn-primary mb-3">Add Food Item</Link>
+            <Link to="/foodItemForm" className="btn btn-primary mb-3">Add Food Item</Link>
 
             <div className="d-flex mb-3">
                 <div className="me-3">

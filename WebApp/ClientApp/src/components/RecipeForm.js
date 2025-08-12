@@ -23,7 +23,7 @@ const RecipeForm = () => {
     }, [unitDictionary, unitOptions]);
 
     useEffect(() => {
-        if (unitDictionary && id) {
+        if (ready && id) {
             fetchRecipe(id);
         }
     }, [ready, id]);
@@ -430,7 +430,8 @@ query foodItems($query: String) {
 
     const validateAmountMade = (newAmountMade) => {
         if (amountMadeIsEmpty(newAmountMade)) {
-            // Both blank, which is not an error state.
+            delete newAmountMade["-error-unitId"];
+            delete newAmountMade["-error-quantity"];
             return false;
         }
 
@@ -475,7 +476,9 @@ query foodItems($query: String) {
 
     const validateIngredient = (newIngredient) => {
         if (ingredientIsEmpty(newIngredient)) {
-            // Both blank, which is not an error state.
+            delete newIngredient["-error-foodItemId"];
+            delete newIngredient["-error-unitId"];
+            delete newIngredient["-error-quantity"];
             return false;
         }
 

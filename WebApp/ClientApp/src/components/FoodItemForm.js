@@ -13,8 +13,14 @@ const unitPercent = {
 }
 const unitPercentOption = { label: "Percent", value: "", unit: unitPercent, isPercentUnit: true };
 
+const emptyServingSize = { unitId: "", quantity: "", unitType: "" };
+const emptyNutrient = { quantity: "", percent: null, nutrientId: null, unitId: null };
+
+const servingSizeIsEmpty = s => "" == ((s.unitId || "").toString() + (s.quantity || "").toString()).trim();
+const nutrientIsEmpty = n => "" == ((n.nutrientId || "").toString() + (n.quantity || "").toString() + (n.unitId || "").toString()).trim();
+
 const FoodItemForm = () => {
-    const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: null, servingSizes: [], nutrients: [], "-show-errors": false });
+    const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: null, servingSizes: [ {... emptyServingSize} ], nutrients: [ {... emptyNutrient} ], "-show-errors": false });
 
     const [unitDictionary, setUnitDictionary] = useState();
     const [unitOptions, setUnitOptions] = useState();
@@ -39,7 +45,7 @@ const FoodItemForm = () => {
     }, [unitDictionary, unitOptions, nutrientOptions]);
 
     useEffect(() => {
-        if (ready) {
+        if (ready && id) {
             fetchFoodItem(id);
         }
     }, [ready, id])
@@ -68,34 +74,34 @@ const FoodItemForm = () => {
 
         // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
         hasErrors = validateFoodItemName(newFoodItem) || hasErrors;
-        hasErrors = validateFoodItemServingSizes(newFoodItem) || hasErrors;
-        hasErrors = validateFoodItemNutrients(newFoodItem) || hasErrors;
+        hasErrors = validateServingSizes(newFoodItem) || hasErrors;
+        hasErrors = validateNutrients(newFoodItem) || hasErrors;
 
         newFoodItem["-has-errors"] = hasErrors;
 
         return hasErrors;
     };
 
-    const validateFoodItemName = (foodItem) => {
+    const validateFoodItemName = (newFoodItem) => {
         let hasErrors = false;
 
-        if (! (foodItem.name || "").trim()) {
-            foodItem["-error-name"] = "Food item name is required.";
+        if (! (newFoodItem.name || "").trim()) {
+            newFoodItem["-error-name"] = "Food item name is required.";
             hasErrors = true;
         }
         else {
-            delete foodItem["-error-name"];
+            delete newFoodItem["-error-name"];
         }
 
-        foodItem["-has-errors"] = hasErrors;
+        newFoodItem["-has-errors"] = hasErrors;
 
         return hasErrors;
     };
 
-    const validateFoodItemServingSizes = (foodItem) => {
+    const validateServingSizes = (newFoodItem) => {
         let hasErrors = false;
         // TODO: why did I do this like this and not pass it directly into the inner function?
-        const newServingSizes = [... foodItem.servingSizes];
+        const newServingSizes = [... newFoodItem.servingSizes];
 
         for (const servingSize of newServingSizes) {
             hasErrors = validateServingSize(servingSize) || hasErrors;
@@ -104,84 +110,105 @@ const FoodItemForm = () => {
         return hasErrors;
     }
 
-    const validateServingSize = (servingSize) => {
+    const validateServingSize = (newServingSize) => {
+        if (servingSizeIsEmpty(newServingSize)) {
+            delete newServingSize["-error-unitId"];
+            delete newServingSize["-error-quantity"];
+            return false;
+        }
+
         let hasErrors = false;
 
-        if (! (servingSize.unitId || "").trim()) {
-            servingSize["-error-unitId"] = "Serving size unitis required.";
+        if (! (newServingSize.unitId || "").trim()) {
+            newServingSize["-error-unitId"] = "Serving size unitis required.";
             hasErrors = true;
         }
         else {
-            delete servingSize["-error-unitId"];
+            delete newServingSize["-error-unitId"];
         }
 
-        var quantityFloat = parseFloat(servingSize.quantity);
+        var quantityFloat = parseFloat(newServingSize.quantity);
 
         if (isNaN(quantityFloat)) {
             // Probably impossible.
-            servingSize["-error-quantity"] = "Serving size quantity must be a number.";
+            newServingSize["-error-quantity"] = "Serving size quantity must be a number.";
             hasErrors = true;
         }
         else if (0 >= quantityFloat) {
-            servingSize["-error-quantity"] = "Serving size quantity must be positive.";
+            newServingSize["-error-quantity"] = "Serving size quantity must be positive.";
             hasErrors = true;
         }
         else {
-            delete servingSize["-error-quantity"];
+            delete newServingSize["-error-quantity"];
         }
 
         return hasErrors;
     };
 
-    const validateFoodItemNutrients = (foodItem) => {
+    const validateNutrients = (newFoodItem) => {
         let hasErrors = false;
 
-        for (const nutrient of foodItem.nutrients) {
-            if (! (nutrient.nutrientId || "").trim()) {
-                nutrient["-error-nutrientId"] = "Nutrient is required.";
-                hasErrors = true;
-            }
-            else {
-                delete nutrient["-error-nutrientId"];
-            }
-            
-            if (! (nutrient.unitId || "").trim() && !nutrient.isPercentUnit) {
-                nutrient["-error-unitId"] = "Nutrient unit is required.";
-                hasErrors = true;
-            }
-            else {
-                delete nutrient["-error-unitId"];
-            }
+        for (const nutrient of newFoodItem.nutrients) {
+            hasErrors = validateNutrient(nutrient) || hasErrors;
+        }
 
-            if (nutrient.isPercentUnit) {
-                var percentFloat = parseFloat(nutrient.percent);
-                if (isNaN(percentFloat)) {
-                    // Probably impossible.
-                    nutrient["-error-quantity"] = "Nutrient daily value percent must be a number.";
-                    hasErrors = true;
-                }
-                else if (0 >= percentFloat) {
-                    nutrient["-error-quantity"] = "Nutrient daily value percent must be positive.";
-                    hasErrors = true;
-                }
-                else {
-                    delete nutrient["-error-quantity"];
-                }
+        return hasErrors;
+    }
+
+    const validateNutrient = (newNutrient) => {
+        if (nutrientIsEmpty(newNutrient)) {
+            delete newNutrient["-error-nutrientId"];
+            delete newNutrient["-error-unitId"];
+            delete newNutrient["-error-quantity"];
+            return false;
+        }
+
+        let hasErrors = false;
+
+        if (! (newNutrient.nutrientId || "").trim()) {
+            newNutrient["-error-nutrientId"] = "Nutrient is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newNutrient["-error-nutrientId"];
+        }
+        
+        if (! (newNutrient.unitId || "").trim() && !newNutrient.isPercentUnit) {
+            newNutrient["-error-unitId"] = "Nutrient unit is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newNutrient["-error-unitId"];
+        }
+
+        if (newNutrient.isPercentUnit) {
+            var percentFloat = parseFloat(newNutrient.percent);
+            if (isNaN(percentFloat)) {
+                // Probably impossible.
+                newNutrient["-error-quantity"] = "Nutrient daily value percent must be a number.";
+                hasErrors = true;
+            }
+            else if (0 >= percentFloat) {
+                newNutrient["-error-quantity"] = "Nutrient daily value percent must be positive.";
+                hasErrors = true;
             }
             else {
-                var percentFloat = parseFloat(nutrient.quantity);
-                if (isNaN(percentFloat)) {
-                    // Probably impossible.
-                    nutrient["-error-quantity"] = "Nutrient quantity must be a number.";
-                    hasErrors = true;
-                }
-                else if (0 >= percentFloat) {
-                    nutrient["-error-quantity"] = "Nutrient quantity must be positive.";
-                    hasErrors = true;
-                }
-                else {
-                    delete nutrient["-error-quantity"];
-                }
+                delete newNutrient["-error-quantity"];
+            }
+        }
+        else {
+            var percentFloat = parseFloat(newNutrient.quantity);
+            if (isNaN(percentFloat)) {
+                // Probably impossible.
+                newNutrient["-error-quantity"] = "Nutrient quantity must be a number.";
+                hasErrors = true;
+            }
+            else if (0 >= percentFloat) {
+                newNutrient["-error-quantity"] = "Nutrient quantity must be positive.";
+                hasErrors = true;
+            }
+            else {
+                delete newNutrient["-error-quantity"];
             }
         }
 
@@ -362,37 +389,42 @@ query ($id: Guid!) {
         setFoodItem({ ...newFoodItem });
     }
 
+    const checkEmptiesAndAddServingSize = (newFoodItem) => {
+        const allHaveValues = newFoodItem.servingSizes.reduce((acc, cur) => acc && (cur.unitId && parseFloat(cur.quantity)) ? true : false, true);
+        if (allHaveValues && newFoodItem.servingSizes.length < unitOptions.length) {
+            newFoodItem = {...newFoodItem, servingSizes: [... newFoodItem.servingSizes, {...emptyServingSize} ]}
+        }
+        return newFoodItem;
+    };
+
     const handleServingSizeChange = (index, e) => {
         const { name, value } = e.target;
         const servingSizes = [...foodItem.servingSizes];
         servingSizes[index] = { ...servingSizes[index], [name]: value };
-        const newFoodItem = { ...foodItem, servingSizes: servingSizes};
+        const newFoodItem = checkEmptiesAndAddServingSize({ ...foodItem, servingSizes: servingSizes});
 
         validateFoodItem(newFoodItem);
-
         setFoodItem(newFoodItem)
     };
 
-    const handleServingSizeUnitSeelctionChange = (index, selectedOption) => {
+    const handleServingSizeUnitSelectionChange = (index, selectedOption) => {
         const newServingSizes = [ ...foodItem.servingSizes];
         newServingSizes[index].unitId = selectedOption?.value;
-        const newFoodItem = { ...foodItem, servingSizes: newServingSizes };
-
-        validateFoodItem(newFoodItem);
-
+        const newFoodItem = checkEmptiesAndAddServingSize({ ...foodItem, servingSizes: newServingSizes });
+        validateFoodItem(newFoodItem);        
         setFoodItem(newFoodItem);
     };
 
-    const addServingSize = () => {
-        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, { unitId: "", quantity: 0, unitType: "" }] });
+    const handleAddServingSizeButton = () => {
+        setFoodItem({ ...foodItem, servingSizes: [...foodItem.servingSizes, {...emptyServingSize}]});
     };
 
-    const removeServingSize = (index) => {
+    const handleRemoveServingSizeButton = (index) => {
         const servingSizes = foodItem.servingSizes.filter((_, i) => i !== index);
         setFoodItem({ ...foodItem, servingSizes: servingSizes });
     }
 
-    const moveServingSizeUp = (index) => {
+    const handleMoveServingSizeUpButton = (index) => {
         if (index > 0) {
             const servingSizesBefore = foodItem.servingSizes.slice(0, index - 1);
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 1);
@@ -401,7 +433,7 @@ query ($id: Guid!) {
         }
     }
 
-    const moveServingSizeDown = (index) => {
+    const handleMoveServingSizeDownButton = (index) => {
         if (index < foodItem.servingSizes.length - 1) {
             const servingSizesBefore = foodItem.servingSizes.slice(0, index);
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 2);
@@ -409,6 +441,14 @@ query ($id: Guid!) {
             setFoodItem({ ...foodItem, servingSizes: servingSizes});
         }
     }
+
+    const checkEmptiesAndAddNutrient = (newFoodItem) => {
+        const allHaveValues = newFoodItem.nutrients.reduce((acc, cur) => acc && (cur.nutrientId && cur.unitId && (parseFloat(cur.quantity) || parseFloat(cur.percent))) ? true : false, true);
+        if (allHaveValues) {
+            newFoodItem = {...newFoodItem, nutrients: [... newFoodItem.nutrients, {...emptyNutrient} ]}
+        }
+        return newFoodItem;
+    };
 
     const handleNutrientQuantityChange = (index, value) => {
         const nutrients = [...foodItem.nutrients];
@@ -419,7 +459,9 @@ query ($id: Guid!) {
         else {
             nutrients[index] = { ...nutrients[index], quantity: value, percent: null };
         }
-        setFoodItem({ ...foodItem, nutrients: nutrients });
+        const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: nutrients });
+        validateFoodItem(newFoodItem);
+        setFoodItem(newFoodItem);
     };
 
     const handleNutrientSelectionChange = (index, selectedOption) => {
@@ -433,7 +475,8 @@ query ($id: Guid!) {
 
             newNutrients[index].unitOptions = generateNutrientUnitOptions(selectedNutrient.defaultUnit.id, selectedNutrient.currentDailyValue);
 
-            const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: newNutrients });
+            validateFoodItem(newFoodItem);
             setFoodItem(newFoodItem);
         }
         else {
@@ -441,6 +484,7 @@ query ($id: Guid!) {
             newNutrients[index].nutrientId = null;
             newNutrients[index].unitId = null;
             const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            validateFoodItem(newFoodItem);
             setFoodItem(newFoodItem);
         }
     };
@@ -459,20 +503,21 @@ query ($id: Guid!) {
             newNutrients[index].percent = null;
         }
 
-        const newFoodItem = { ...foodItem, nutrients: newNutrients };
+        const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: newNutrients });
+        validateFoodItem(newFoodItem);
         setFoodItem(newFoodItem);
     };
 
-    const addNutrient = () => {
-        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, { quantity: 0, percent: null, nutrientId: null, unitId: null }] });
+    const handleAddNutrientButton = () => {
+        setFoodItem({ ...foodItem, nutrients: [...foodItem.nutrients, {... emptyNutrient }] });
     };
 
-    const removeNutrient = (index) => {
+    const handleRemoveNutrientButton = (index) => {
         const nutrients = foodItem.nutrients.filter((_, i) => i !== index);
         setFoodItem({ ...foodItem, nutrients: nutrients });
     };
 
-    const moveNutrientUp = (index) => {
+    const handleMoveNutrientUpButton = (index) => {
         if (index > 0) {
             const nutrientsBefore = foodItem.nutrients.slice(0, index - 1);
             const nutrientsAfter  = foodItem.nutrients.slice(index + 1);
@@ -481,7 +526,7 @@ query ($id: Guid!) {
         }
     }
 
-    const moveNutrientDown = (index) => {
+    const handleMoveNutrientDownButton = (index) => {
         if (index < foodItem.nutrients.length - 1) {
             const nutrientsBefore = foodItem.nutrients.slice(0, index);
             const nutrientsAfter  = foodItem.nutrients.slice(index + 2);
@@ -510,27 +555,45 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
         const hasErrors = validateAndSetFoodItem(foodItem);
 
         if (!hasErrors) {
+            const foodItemToSubmit = {
+                ...foodItem
+              , servingSizes: foodItem.servingSizes.filter(s => !servingSizeIsEmpty(s))
+              , nutrients: foodItem.nutrients.filter(n => !nutrientIsEmpty(n))
+            };
+            
             if (id) {
-                const response = await fetch(`/api/fooditems/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(foodItem),
-                });
-                
-                navigate(`/FoodItemForm/${id}`);
+                try {
+                    const response = await fetch(`/api/fooditems/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(foodItemToSubmit),
+                    });
+                    
+                    setFoodItem(foodItemToSubmit);
+                    navigate(`/FoodItemForm/${id}`);
+                }
+                catch(err) {
+                    console.error(err);
+                }
             } else {
-                const response = await fetch('/api/fooditems', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(foodItem),
-                });
+                try {
+                    const response = await fetch('/api/fooditems', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(foodItemToSubmit),
+                    });
 
-                const json = await response.json();
-                navigate(`/FoodItemForm/${json.id}`);
+                    const json = await response.json();
+                    setFoodItem(foodItemToSubmit);
+                    navigate(`/FoodItemForm/${json.id}`);
+                }
+                catch(err) {
+                    console.error(err);
+                }
             }
         }
     };
@@ -661,7 +724,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                                 return ret;
                                             })()}
                                             isClearable
-                                            onChange={(selectedOption) => handleServingSizeUnitSeelctionChange(index, selectedOption)}
+                                            onChange={(selectedOption) => handleServingSizeUnitSelectionChange(index, selectedOption)}
                                             value={unitOptions.reduce((result, grp) => [...result, ...grp.options], []).find(option => option.value === servingSize.unitId) || null}
                                             classNamePrefix="react-select"
                                             className={`${foodItem["-show-errors"] && servingSize["-error-unitId"] ? 'is-invalid' : ''}`}
@@ -683,8 +746,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                             value={servingSize.quantity}
                                             onChange={(e) => handleServingSizeChange(index, e)}
                                             placeholder="quantity"
-                                            required
-                                            readonly={foodItem.generatedFromId}
+                                            readOnly={foodItem.generatedFromId}
                                             disabled={foodItem.generatedFromId}
                                         />
                                         {(foodItem["-show-errors"] && (<div className='error-message'>{servingSize["-error-quantity"]}</div>))}
@@ -696,9 +758,9 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                     <div className="form-group">
                                         <div className="col-auto align-self-end">
                                             <div className="btn-group" role="group" aria-label="Button group">
-                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveServingSizeUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveServingSizeDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeServingSize(index)}><i className="bi bi-trash"></i></button>
+                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => handleMoveServingSizeUpButton(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => handleMoveServingSizeDownButton(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => handleRemoveServingSizeButton(index)}><i className="bi bi-trash"></i></button>
                                             </div>
                                         </div>
                                     </div>
@@ -708,7 +770,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     ))}
                 </tbody>
             </table>
-            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= unitOptions.length} onClick={addServingSize}>Add Serving Size</button>)}
+            {!(foodItem.generatedFromId) && (<button type="button" className="btn btn-secondary mb-3" disabled={foodItem.servingSizes.length >= unitOptions.length} onClick={handleAddServingSizeButton}>Add Serving Size</button>)}
 
             <h5>Nutrition Information per Serving</h5>
             {foodItem.generatedFromId && (<div className='mb-3'><em>Nutrition information cannot be edited for food items generated from recipes.</em></div>)}
@@ -761,13 +823,12 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                             id={`foodItem-nutrient-${index}`}
                                             type="number"
                                             name="quantity"
-                                            readonly={foodItem.generatedFromId}
+                                            readOnly={foodItem.generatedFromId}
                                             disabled={foodItem.generatedFromId}
                                             className={`form-control ${(foodItem["-show-errors"] && nutrient["-error-quantity"]) ? "is-invalid" : ""}`}
                                             value={((x) => foodItem.generatedFromId ? Math.round(x) : x)(nutrient.percent ?? nutrient.quantity ?? 0)}
                                             onChange={(e) => handleNutrientQuantityChange(index, e.target.value)}
                                             placeholder="Quantity"
-                                            required
                                         />
                                         {(foodItem["-show-errors"] && (<div className='error-message'>{nutrient["-error-quantity"]}</div>))}
                                     </div>
@@ -798,9 +859,9 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                                     <div className="form-group">
                                         <div className="col-auto align-self-end">
                                             <div className="btn-group" role="group" aria-label="Button group">
-                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => moveNutrientUp(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
-                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => moveNutrientDown(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
-                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => removeNutrient(index)}><i className="bi bi-trash"></i></button>
+                                                <button type="button" aria-label='Move Up' className="btn btn-primary" onClick={() => handleMoveNutrientUpButton(index)}><i className="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                                <button type="button" aria-label='Move Down' className="btn btn-secondary" onClick={() => handleMoveNutrientDownButton(index)}><i className="bi bi-arrow-down" aria-hidden="true"></i></button>
+                                                <button type="button" area-label='Remove' className="btn btn-danger" onClick={() => handleRemoveNutrientButton(index)}><i className="bi bi-trash"></i></button>
                                             </div>
                                         </div>
                                     </div>
@@ -814,7 +875,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                 <>
                     <div className="row mb-3">
                         <div className="col-auto align-self-end">
-                            <button type="button" className="btn btn-secondary" disabled={foodItem.nutrients.length >= ungroupOptions(nutrientOptions).length} onClick={addNutrient}>Add Nutrient</button>
+                            <button type="button" className="btn btn-secondary" disabled={foodItem.nutrients.length >= ungroupOptions(nutrientOptions).length} onClick={handleAddNutrientButton}>Add Nutrient</button>
                         </div>
                     </div>
                     <h5>Actions</h5>
