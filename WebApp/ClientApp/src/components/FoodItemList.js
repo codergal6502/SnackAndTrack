@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import { yesNoOptions, copyWithoutNullValues, objectFromSearchParams } from '../utilties';
-import { fetchGraphQl } from '../utilties';
+
+import { fetchGraphQl, yesNoOptions, copyWithoutNullValues, objectFromSearchParams } from '../utilties';
 
 const FoodItemList = () => {
     
@@ -106,7 +106,6 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
 
     const debouncedSearchTextChange = async (q) => {
         // This technically isn't debounding since each separate keystroke is a new, intentional press of the button.
-        console.log("fetch", q);
         setSearchParamObject({... searchParamObject, name: q});
     }
 
@@ -117,10 +116,13 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
         setNameInput(q);
     }
 
+    // TODO: view components should let you scale recipes, servings, etc. up and down
+    // ';k;l 30 j'kl12039u49 3jfadsjd;lsfa 3
+
     return searchParamObject && (
-        <form autoComplete='Off'>
+        <div>
             <h1>Food Items</h1>
-            <button onClick={() => { navigate("/FoodItemForm"); }} className="btn btn-primary mb-3">Add Food Item</button>
+            <button type="button" onClick={() => { navigate("/FoodItemForm"); }} className="btn btn-primary mb-3">Add Food Item</button>
 
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -243,7 +245,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                     </tr>
                 </tfoot>}
             </table>
-        </form>
+        </div>
     );
 };
 

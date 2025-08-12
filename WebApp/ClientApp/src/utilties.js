@@ -101,4 +101,14 @@ const objectFromSearchParams = (sp) => {
     return ret;
 }
 
-export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits, yesNoOptions, copyWithoutNullValues, objectFromSearchParams };
+const roundToTwoPlaces = (possibleFloat) => {
+    const parsed = parseFloat(possibleFloat);
+    if (parsed) {
+        return Math.round(parsed * 100) / 100;
+    }
+    else {
+        return parsed;
+    }
+}
+
+export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits, yesNoOptions, copyWithoutNullValues, objectFromSearchParams, roundToTwoPlaces};

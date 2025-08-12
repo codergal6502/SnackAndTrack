@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions } from '../utilties';
+import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces } from '../utilties';
 import Select from 'react-select';
 
 const unitPercent = {
@@ -353,8 +353,8 @@ query ($id: Guid!) {
           , generatedFromId: data.foodItem.generatedFrom?.id ?? null
           , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
                 isPercentUnit: parseFloat(fin.percent) ? true : false
-              , quantity: parseFloat(fin.percent) ? null : fin.quantity
-              , percent: fin.percent
+              , quantity: roundToTwoPlaces(fin.quantity) || null
+              , percent: roundToTwoPlaces(fin.percent) || null
               , nutrientId: fin.nutrient.id
               , "-nutrientName": fin.nutrient.name
               , unitId: parseFloat(fin.percent) ? null : fin.unit.id
@@ -363,7 +363,7 @@ query ($id: Guid!) {
           , servingSizes: (data.foodItem?.servingSizes?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(s => ({
                 unitId: s.unit.id
               , unitType: s.unit.type
-              , quantity: s.quantity
+              , quantity: roundToTwoPlaces(s.quantity)
             }))
         };
 
