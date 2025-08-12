@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import React, { Component } from 'react';
 import Select from 'react-select';
 import { useSearchParams } from 'react-router-dom';
 import Modal from 'react-bootstrap/Modal';
-import ModalHeader from 'react-bootstrap/esm/ModalHeader';
+import { DateTime} from "luxon";
 
 const FoodJournal = () => {
     // make it so users can bookmark and navigate
@@ -46,6 +45,7 @@ const FoodJournal = () => {
                       , unit: foodJournalEntry.unit
                       , quantity: foodJournalEntry.quantity
                       , time: foodJournalEntry.time
+                      , "-dt-object": DateTime.fromISO(foodJournalEntry.time)
                       , nutrients: { }
                     };
 
@@ -288,7 +288,9 @@ query GetFoodJournalEntries($date: DateOnly) {
     }
 
     const handleFoodItemTimeChange = (time) => {
-        const newFoodItemPopupState = {... foodItemPopupState, time: time };
+        const dt = DateTime.fromISO(time);
+        console.log(dt);
+        const newFoodItemPopupState = {... foodItemPopupState, time: time, "-dt-object]": dt };
         populateErrorsInFoodItemPopup(newFoodItemPopupState);
         setFoodItemPopupState(newFoodItemPopupState);
     }
@@ -695,7 +697,7 @@ query GetFoodJournalEntries($date: DateOnly) {
                         <tr key={entryIndex}>
                             <td>
                                 <div className="position-relative">
-                                    <label readOnly className='form-label'>{je.foodItem && je.unit && je.quantity ? `${je.foodItem.name}, ${je.quantity} ${je.unit.name} ${je.time}` : ''}</label>
+                                    <label readOnly className='form-label'>{je.foodItem && je.unit && je.quantity ? `${je.foodItem.name}, ${je.quantity} ${je.unit.name} ${je["-dt-object"]?.invalid ? "" : je["-dt-object"].toLocaleString(DateTime.TIME_SIMPLE)}` : ''}</label>
                                     <button className='btn btn-secondary position-absolute end-0 top-50 translate-middle-y' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
                                 </div>
                             </td>
