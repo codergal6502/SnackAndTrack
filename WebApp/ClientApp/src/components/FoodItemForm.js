@@ -35,6 +35,7 @@ const FoodItemForm = () => {
     useEffect(() => {
         fetchNutrients();
         fetchUnits();
+        document.title = "Snack and Track: Edit Food Item";
     }, []);
 
     useEffect(() => {
@@ -883,7 +884,7 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                             <button type="submit" className="btn btn-primary">Save</button>
                         </div>
                         <div className="col-auto align-self-end">
-                            <button type="button" className="btn btn-secondary" onClick={() => navigate('/FoodItemList')}>Cancel</button>
+                            <button type="button" className="btn btn-secondary" onClick={() => navigate(-1) }>Cancel</button>
                         </div>
                     </div>
                 </>

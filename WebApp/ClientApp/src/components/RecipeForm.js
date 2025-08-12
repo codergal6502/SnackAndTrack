@@ -16,6 +16,8 @@ const RecipeForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
+    useEffect(() => { document.title = "Snack and Track: Edit Recipe" }, [])
+
     useEffect(() => {
         if (unitDictionary && unitOptions) {
             setReady(true);
@@ -690,12 +692,17 @@ query foodItems($query: String) {
 
             <button type="button" className="btn btn-secondary mb-3" onClick={handleAddIngredientButton}>Add Ingredient</button>
 
+            <h4>Actions</h4>
+
             <div className="row mb-3">
                 <div className="col-auto align-self-end">
                     <button type="submit" className="btn btn-primary">Save</button>
                 </div>
                 <div className="col-auto align-self-end">
-                    <button type="button" className="btn btn-secondary" onClick={() => navigate('/recipeList')}>Cancel</button>
+                    <button type="submit" className="btn btn-secondary">Make Available in Food Journal</button>
+                </div>
+                <div className="col-auto align-self-end">
+                    <button type="button" className="btn btn-secondary" onClick={() => navigate(-1) }>Cancel</button>
                 </div>
             </div>
         </form>

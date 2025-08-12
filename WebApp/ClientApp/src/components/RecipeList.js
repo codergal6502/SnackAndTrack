@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import { fetchGraphQl } from '../utilties';
+
+import { fetchGraphQl, copyWithoutNullValues, objectFromSearchParams } from '../utilties';
 
 const RecipeList = () => {
 
@@ -11,21 +11,43 @@ const RecipeList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchParamObject, setSearchParamObject] = useState();
     const [pageCount, setPageCount] = useState(null);
+    const [listedPages, setListedPages] = useState([]);
+    const navigate = useNavigate();
+
+    useEffect(() => { document.title = "Snack and Track: Recipe List" }, [])
 
     useEffect(() => {
         if (searchParamObject) {
             fetchRecipes();
+            setSearchParams(copyWithoutNullValues(searchParamObject));
         }
     }, [searchParamObject]);
 
     useEffect(() => {
         if (searchParams) {
-            var newSearchParamObject = Object.fromEntries(searchParams);
-            var defaultSearchParamObject = { name: "", page: 1, pageSize: 20, sortOrder: "ASCENDING", sortBy: "NAME" };
-            newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
-            setSearchParamObject(newSearchParamObject);
+            if (!searchParamObject) {
+                var newSearchParamObject = objectFromSearchParams(searchParams);
+                
+                var defaultSearchParamObject = {
+                    name: ""
+                  , page: 1
+                  , pageSize: 20
+                  , sortOrder: "ASCENDING"
+                  , sortBy: "NAME"
+                };
+    
+                newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
+                setSearchParamObject(newSearchParamObject);
+                setNameInput(newSearchParamObject.name);
+            }
         }
     }, [searchParams]);
+
+    useEffect(() => {
+        if (pageCount) {
+            setListedPages(Array(pageCount).fill(0).map((_, a) => a + 1));
+        }
+    }, [pageCount])
 
     const sortByOptions = [ { label: "Name", value: "NAME" } ];
     const sortOrderOptions = [ { label: "Ascending", value: "ASCENDING" }, { label: "Descending", value: "DESCENDING" } ];
@@ -33,23 +55,21 @@ const RecipeList = () => {
     const fetchRecipes = async () => {
         const query = `
 query Recipes($name: String, $page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy: RecipeSortBy!) {
-    recipes(name: $name, page: $page, pageSize: $pageSize, sortOrder: $sortOrder, sortBy: $sortBy) {
-        items {
-            id
-            name
-        }
+  recipes(
+    name: $name
+    page: $page
+    pageSize: $pageSize
+    sortOrder: $sortOrder
+    sortBy: $sortBy
+  ) {
+    totalCount
+    totalPages
+    items {
+      id
+      name
     }
-}
-        `;
-        setSearchParams({
-            page: parseInt(searchParamObject.page)
-          , pageSize: parseInt(searchParamObject.pageSize)
-          , sortOrder: searchParamObject.sortOrder
-          , sortBy: searchParamObject.sortBy
-          , name: searchParamObject.name
-        });
-        setNameInput(searchParamObject.name);
-
+  }
+}`;
         const data = await fetchGraphQl(query, {
             page: parseInt(searchParamObject.page)
           , pageSize: parseInt(searchParamObject.pageSize)
@@ -65,7 +85,7 @@ query Recipes($name: String, $page: Int!, $pageSize: Int!, $sortOrder: SortOrder
     const searchTextTimeoutIdList = useRef([ ]);
 
     const debouncedSearchTextChange = async (q) => {
-        console.log("fetch", q);
+        // This technically isn't debounding since each separate keystroke is a new, intentional press of the button.
         setSearchParamObject({... searchParamObject, name: q});
     }
 
@@ -79,7 +99,7 @@ query Recipes($name: String, $page: Int!, $pageSize: Int!, $sortOrder: SortOrder
     return searchParamObject && (
         <form autoComplete='Off'>
             <h1>Recipes</h1>
-            <Link to="/RecipeForm" className="btn btn-primary mb-3">Add Recipe</Link>
+            <button onClick={() => navigate("/RecipeForm")} className="btn btn-primary mb-3">Add Recipe</button>
 
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -147,24 +167,35 @@ query Recipes($name: String, $page: Int!, $pageSize: Int!, $sortOrder: SortOrder
                             <td>{item.name}</td>
                             <td>
                                 <div className="bd-example m-0 border-0">
-                                    <Link to={`/RecipeForm/${item.id}`} className="btn btn-primary">Edit</Link>
-                                    <Link to={`/RecipeCompute/${item.id}`} className="btn btn-info">Create Food Item</Link>
-                                    <Link to={`#`} className="btn btn-secondary">Create Duplicate</Link>
+                                    <button
+                                        type="button"
+                                        className='btn btn-primary'
+                                        onClick={() => navigate(`/RecipeForm/${item.id}`)}
+                                    >Edit</button>
                                 </div>
                             </td>
                         </tr>
                     ))}
                 </tbody>
-                {/* TODO: Implement this
-                <tfoot>
+                {(pageCount > 0) && <tfoot>
                     <tr>
-                        <td colspan="4">
-                            {
-                                [...Array(pageCount).keys().map(i => <span>{i}</span>)]                                
-                            }
+                        <td colSpan="4" className="text-center">
+                            <div className='btn-group'>
+                                {
+                                    (listedPages??[]).map(i =>
+                                        <button
+                                            key={i}
+                                            type='button'
+                                            // style={1 == pageCount ? { } : i == 1 ? { borderRight: "1px solid black" } : i == pageCount ? { borderLeft: "1px solid black" } : { borderRight: "1px solid black", borderLeft: "1px solid black" } }
+                                            className={`btn ${i == searchParamObject.page ? 'btn-outline-info' : 'btn-info'}`}
+                                            onClick={() => setSearchParamObject({... searchParamObject, page: i})}
+                                        >{i}</button>
+                                    )
+                                }
+                            </div>
                         </td>
                     </tr>
-                </tfoot> */}
+                </tfoot>}
             </table>
         </form>
     );

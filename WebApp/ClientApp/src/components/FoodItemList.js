@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { yesNoOptions, copyWithoutNullValues, objectFromSearchParams } from '../utilties';
+import { fetchGraphQl } from '../utilties';
 
 const FoodItemList = () => {
     
@@ -11,7 +11,10 @@ const FoodItemList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchParamObject, setSearchParamObject] = useState();
     const [pageCount, setPageCount] = useState(null);
-    const [listedPages, setListedPages] = useState([])
+    const [listedPages, setListedPages] = useState([]);
+    const navigate = useNavigate();
+
+    useEffect(() => { document.title = "Snack and Track: Food Item List" }, [])
 
     useEffect(() => {
         if (searchParamObject) {
@@ -43,26 +46,7 @@ const FoodItemList = () => {
     }, [searchParams]);
 
     useEffect(() => {
-        const endPageCount = 2;
-        const maxMiddlePages = 2;
         if (pageCount) {
-            // if (pageCount < 2 * endPageCount + maxMiddlePages) {
-            //     const newListedPages = Array(pageCount).fill(0).map((_, a) => a + 1);
-            //     setListedPages(newListedPages);
-            // }
-            // else {
-            //     const middleStart = pageCount / 2 - maxMiddlePages / 2;
-            //     const firstPages = Array(endPageCount).fill(0).map((_, a) => a + 1);
-            //     const lastPages = Array(endPageCount).fill(0).map((_, a) => pageCount - endPageCount + a + 1);
-
-            //     let middlePages = Array(maxMiddlePages).fill(0).map((_, a) => middleStart + a + 1);
-
-            //     if (endPageCount < searchParamObject.page && searchParamObject.page <= pageCount - endPageCount) {
-            //         if (0 > middlePages.indexOf())
-            //     }
-
-            //     setListedPages([...firstPages, ...middlePages, ...lastPages]);
-            // }
             setListedPages(Array(pageCount).fill(0).map((_, a) => a + 1));
         }
     }, [pageCount])
@@ -104,29 +88,16 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
     }
   }
 }`;
-
-        const body=JSON.stringify({
-            query
-          , variables: {
-                page: parseInt(searchParamObject.page)
-              , pageSize: parseInt(searchParamObject.pageSize)
-              , sortBy: searchParamObject.sortBy
-              , sortOrder: searchParamObject.sortOrder
-              , name: searchParamObject.name
-              , usableAsRecipeIngredient: searchParamObject.usableAsRecipeIngredient
-              , usableInFoodJournal: searchParamObject.usableInFoodJournal
-            },
+        const data = await fetchGraphQl(query, {
+            page: parseInt(searchParamObject.page)
+          , pageSize: parseInt(searchParamObject.pageSize)
+          , sortBy: searchParamObject.sortBy
+          , sortOrder: searchParamObject.sortOrder
+          , name: searchParamObject.name
+          , usableAsRecipeIngredient: searchParamObject.usableAsRecipeIngredient
+          , usableInFoodJournal: searchParamObject.usableInFoodJournal
         });
 
-        const response = await fetch('/graphql/query', {
-            method: 'POST'
-          , headers: {
-                'Content-Type': 'application/json'
-            }
-          , body: body
-        });
-        
-        const { data } = await response.json();
         setPageCount(data.foodItems.totalPages);
         setFoodItems(data.foodItems.items); 
     };
@@ -149,7 +120,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
     return searchParamObject && (
         <form autoComplete='Off'>
             <h1>Food Items</h1>
-            <Link to="/foodItemForm" className="btn btn-primary mb-3">Add Food Item</Link>
+            <button onClick={() => { navigate("/FoodItemForm"); }} className="btn btn-primary mb-3">Add Food Item</button>
 
             <div className="d-flex mb-3">
                 <div className="me-3">
@@ -247,8 +218,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                             <td>{yesNoOptions.filter(o => o.value == item.usableInFoodJournal)[0]?.label}</td>
                             <td>
                                 <div className="btn-group" role="group" aria-label="Basic example">
-                                    <Link to={`/fooditemview/${item.id}`} className="btn btn-primary">View</Link>
-                                    <Link to={`/FoodItemForm/${item.id}`} className="btn btn-secondary">Edit</Link>
+                                    <button onClick={() => { navigate(`/FoodItemForm/${item.id}`); }} className="btn btn-secondary mb-3">Edit</button>
                                 </div>
                             </td>
                         </tr>
@@ -263,7 +233,6 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                                         <button
                                             key={i}
                                             type='button'
-                                            // style={1 == pageCount ? { } : i == 1 ? { borderRight: "1px solid black" } : i == pageCount ? { borderLeft: "1px solid black" } : { borderRight: "1px solid black", borderLeft: "1px solid black" } }
                                             className={`btn ${i == searchParamObject.page ? 'btn-outline-info' : 'btn-info'}`}
                                             onClick={() => setSearchParamObject({... searchParamObject, page: i})}
                                         >{i}</button>
