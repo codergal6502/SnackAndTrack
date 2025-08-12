@@ -207,9 +207,8 @@ namespace SnackAndTrack.WebApp.GraphQl {
                     var totalCount = query.Count();
                     var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
-                    if (totalPages < 1) totalPages = 1;
-                    if (page < 1) page = 1;
                     if (page > totalPages) page = totalPages;
+                    if (page < 1) page = 1;
 
                     var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 

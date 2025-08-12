@@ -11,6 +11,7 @@ const FoodItemList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchParamObject, setSearchParamObject] = useState();
     const [pageCount, setPageCount] = useState(null);
+    const [listedPages, setListedPages] = useState([])
 
     useEffect(() => {
         if (searchParamObject) {
@@ -36,9 +37,35 @@ const FoodItemList = () => {
     
                 newSearchParamObject = {...defaultSearchParamObject, ...newSearchParamObject };
                 setSearchParamObject(newSearchParamObject);
+                setNameInput(newSearchParamObject.name);
             }
         }
     }, [searchParams]);
+
+    useEffect(() => {
+        const endPageCount = 2;
+        const maxMiddlePages = 2;
+        if (pageCount) {
+            // if (pageCount < 2 * endPageCount + maxMiddlePages) {
+            //     const newListedPages = Array(pageCount).fill(0).map((_, a) => a + 1);
+            //     setListedPages(newListedPages);
+            // }
+            // else {
+            //     const middleStart = pageCount / 2 - maxMiddlePages / 2;
+            //     const firstPages = Array(endPageCount).fill(0).map((_, a) => a + 1);
+            //     const lastPages = Array(endPageCount).fill(0).map((_, a) => pageCount - endPageCount + a + 1);
+
+            //     let middlePages = Array(maxMiddlePages).fill(0).map((_, a) => middleStart + a + 1);
+
+            //     if (endPageCount < searchParamObject.page && searchParamObject.page <= pageCount - endPageCount) {
+            //         if (0 > middlePages.indexOf())
+            //     }
+
+            //     setListedPages([...firstPages, ...middlePages, ...lastPages]);
+            // }
+            setListedPages(Array(pageCount).fill(0).map((_, a) => a + 1));
+        }
+    }, [pageCount])
 
     const sortByOptions = [ { label: "Name", value: "NAME" }, { label: "Brand", value: "BRAND" } ];
     const sortOrderOptions = [ { label: "Ascending", value: "ASCENDING" }, { label: "Descending", value: "DESCENDING" } ];
@@ -112,7 +139,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
 
     const searchTextChange = async(q) => {
         clearTimeout(searchTextTimeoutIdList.current.shift());
-        searchTextTimeoutIdList.current.push(setTimeout((q2) => { debouncedSearchTextChange(q2); }, 100, q));
+        searchTextTimeoutIdList.current.push(setTimeout((q2) => { debouncedSearchTextChange(q2); }, 250, q));
 
         setNameInput(q);
     }
@@ -124,7 +151,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
 
             <div className="d-flex mb-3">
                 <div className="me-3">
-                    <label htmlFor="search" className="form-label">Search:</label>
+                    <label htmlFor="search" className="form-label">Name:</label>
                     <input
                         id="search"
                         name="search"
@@ -157,7 +184,7 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         isClearable
                     />
                 </div>
-                <div className="me-3">
+                {/* <div className="me-3">
                     <label htmlFor="page" className="form-label">Page:</label>
                     <Select
                         id="page"
@@ -166,9 +193,9 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         value={{ label: searchParamObject.page, value: searchParamObject.page}}
                         onChange={selectedOption => setSearchParamObject({... searchParamObject, page: parseInt(selectedOption.value)})}
                     />
-                </div>
+                </div> */}
                 <div className="me-3">
-                    <label htmlFor="page-size" className="form-label">Page Size:</label>
+                    <label htmlFor="page-size" className="form-label">Results per Size:</label>
                     <Select
                         id="page-size"
                         name="page-size"
@@ -221,16 +248,25 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         </tr>
                     ))}
                 </tbody>
-                {/* TODO: Implement this
-                <tfoot>
+                {(pageCount > 0) && <tfoot>
                     <tr>
-                        <td colspan="4">
-                            {
-                                [...Array(pageCount).keys().map(i => <span>{i}</span>)]                                
-                            }
+                        <td colSpan="4" className="text-center">
+                            <div className='btn-group'>
+                                {
+                                    (listedPages??[]).map(i =>
+                                        <button
+                                            key={i}
+                                            type='button'
+                                            style={1 == pageCount ? { } : i == 1 ? { borderRight: "1px solid black" } : i == pageCount ? { borderLeft: "1px solid black" } : { borderRight: "1px solid black", borderLeft: "1px solid black" } }
+                                            className={`btn btn-info ${i == searchParamObject.page ? 'active' : ''}`}
+                                            onClick={() => setSearchParamObject({... searchParamObject, page: i})}
+                                        >{i}</button>
+                                    )
+                                }
+                            </div>
                         </td>
                     </tr>
-                </tfoot> */}
+                </tfoot>}
             </table>
         </form>
     );
