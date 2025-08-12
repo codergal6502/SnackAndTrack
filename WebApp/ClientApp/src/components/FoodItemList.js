@@ -88,6 +88,8 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
       id
       name
       brand
+      usableInFoodJournal
+      usableAsRecipeIngredient
       servingSizes {
         id
         quantity
@@ -231,6 +233,8 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                     <tr>
                         <th>Name</th>
                         <th>Brand</th>
+                        <th>Usable in Recipe</th>
+                        <th>Usable in Food Journal</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -239,10 +243,12 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                         <tr key={index}>
                             <td>{item.name}</td>
                             <td>{item.brand}</td>
+                            <td>{yesNoOptions.filter(o => o.value == item.usableAsRecipeIngredient)[0]?.label}</td>
+                            <td>{yesNoOptions.filter(o => o.value == item.usableInFoodJournal)[0]?.label}</td>
                             <td>
                                 <div className="btn-group" role="group" aria-label="Basic example">
                                     <Link to={`/fooditemview/${item.id}`} className="btn btn-primary">View</Link>
-                                    <Link to={`/fooditemform/${item.id}`} className="btn btn-secondary">Edit</Link>
+                                    <Link to={`/FoodItemForm/${item.id}`} className="btn btn-secondary">Edit</Link>
                                 </div>
                             </td>
                         </tr>
@@ -257,8 +263,8 @@ query GetFoodItems($page: Int!, $pageSize: Int!, $sortOrder: SortOrder!, $sortBy
                                         <button
                                             key={i}
                                             type='button'
-                                            style={1 == pageCount ? { } : i == 1 ? { borderRight: "1px solid black" } : i == pageCount ? { borderLeft: "1px solid black" } : { borderRight: "1px solid black", borderLeft: "1px solid black" } }
-                                            className={`btn btn-info ${i == searchParamObject.page ? 'active' : ''}`}
+                                            // style={1 == pageCount ? { } : i == 1 ? { borderRight: "1px solid black" } : i == pageCount ? { borderLeft: "1px solid black" } : { borderRight: "1px solid black", borderLeft: "1px solid black" } }
+                                            className={`btn ${i == searchParamObject.page ? 'btn-outline-info' : 'btn-info'}`}
                                             onClick={() => setSearchParamObject({... searchParamObject, page: i})}
                                         >{i}</button>
                                     )
