@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useResolvedPath } from 'react-router-dom';
 
-import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces } from '../utilties';
+import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces, handleBasicHtmlAnchorClick } from '../utilties';
 import Select from 'react-select';
 
 const unitPercent = {
@@ -24,6 +24,9 @@ const FoodItemForm = () => {
     const [unitDictionary, setUnitDictionary] = useState();
     const [unitOptions, setUnitOptions] = useState();
     const [nutrientOptions, setNutrientOptions] = useState();
+    const [nutritionTable, setNutritionTable] = useState(null);
+
+    const foodItemPath = useResolvedPath("/RecipeForm");
 
     const [ready, setReady] = useState();
 
@@ -302,6 +305,7 @@ query ($id: Guid!) {
     usableInFoodJournal
     notes
     recipeBatchDate
+    recipeNutritionTableJson
     generatedFrom {
       id
       name
@@ -330,15 +334,9 @@ query ($id: Guid!) {
     }
   }
 }`;
-        const body=JSON.stringify({query, variables: { "id": id }});
+        const body = JSON.stringify({query, variables: { "id": id }});
 
-        const response = await fetch('/graphql/query', {
-            method: 'POST'
-          , headers: {
-                'Content-Type': 'application/json'
-            }
-          , body: body
-        });
+        const response = await fetch('/graphql/query', {method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body});
 
         const { data } = await response.json();
 
@@ -351,6 +349,7 @@ query ($id: Guid!) {
           , notes: data.foodItem.notes
           , recipeBatchDate: data.foodItem.recipeBatchDate
           , generatedFromId: data.foodItem.generatedFrom?.id ?? null
+          , generatedFromName: data.foodItem.generatedFrom?.name ?? null
           , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
                 isPercentUnit: parseFloat(fin.percent) ? true : false
               , quantity: roundToTwoPlaces(fin.quantity) || null
@@ -368,6 +367,16 @@ query ($id: Guid!) {
         };
 
         setFoodItem(foodItem);
+
+        if (data.foodItem.recipeNutritionTableJson) {
+            try {
+                const newNutritionTable = JSON.parse(data.foodItem.recipeNutritionTableJson);
+                setNutritionTable(newNutritionTable);
+            }
+            catch(err) {
+                console.log(err);
+            }
+        }
     };
 
     const handleChange = (e) => {
@@ -606,8 +615,8 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
     return ready && (
         <form autoComplete="off" onSubmit={handleSubmit}>
             <h4>Food Item</h4>
-            {(foodItem["-show-errors"] && foodItem["-has-errors"]) && (<div className='error-message'>Please correct any errors and try saving again.</div>)}
-
+            {(foodItem["-show-errors"] && foodItem["-has-errors"]) && (<div className='error-message mb-2'>Please correct any errors and try saving again.</div>)}
+            {(foodItem.generatedFromId && <div className='mb-2'>This food item was generated from recipe <a href={`${foodItemPath.pathname}/${foodItem.generatedFromId}`} onClick={(e) => { e.preventDefault(); navigate(`/RecipeForm/${foodItem.generatedFromId}`) }}>{foodItem.generatedFromName}</a>.</div>)}
             <div className="d-flex mb-3">
                 <div className="me-3">
                     <label htmlFor="foodItem-name" className="form-label">Name:</label>
@@ -871,6 +880,39 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     ))}
                 </tbody>
             </table>
+            {nutritionTable && (
+                <>
+                    <h5>Nutrition</h5>
+                    <table className='table table-striped table-bordered'>
+                        <thead>
+                            <tr>
+                                <th scope='col'>Nutrient</th>
+                                {(nutritionTable.recipeIngredients.toSorted(displayOrderCompareFn).map((ingredient, index) => (
+                                    <th key={index} scope="col">{ingredient.foodItemName}</th>
+                                )))}
+                                <th scope="col">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(nutritionTable.nutrientSummaries.toSorted((n1, n2) => n1.nutrientUnitDisplayOrder - n2.nutrientUnitDisplayOrder).map((nutrientSummary, index) => {
+                                return ( 
+                                <tr key={index}>
+                                    <th scope="row">{nutrientSummary.nutrientName}</th>
+                                    {(nutritionTable.recipeIngredients.toSorted(displayOrderCompareFn).map((ingredient, index) => {
+                                        const [foodItemContribution] = nutrientSummary.foodItemContributions.filter(fic => fic.foodItemId === ingredient.foodItemId);
+                                        const rounded = Math.round(foodItemContribution.nutrientQuantity)
+                                        return (
+                                            <td key={index}>{ typeof(foodItemContribution.nutrientQuantity) != "number" ?  '-' : `${rounded } ${foodItemContribution.nutrientUnitName}` }</td>
+                                        );
+                                    }))}
+                                    <td>{Math.round(nutrientSummary.totalQuantity)} {nutrientSummary.nutrientUnitName} {(nutrientSummary.percentDailyValue) && ( `(${Math.round(nutrientSummary.percentDailyValue)}% dv)` ) }</td>
+                                </tr>
+                            );}))}
+                        </tbody>
+                    </table>
+                </>
+            )}
+
             {!(foodItem.generatedFromId) && (
                 <>
                     <div className="row mb-3">

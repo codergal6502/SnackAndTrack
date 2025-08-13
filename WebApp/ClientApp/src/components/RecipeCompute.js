@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from "react-router-dom";
 
-import Select from 'react-select';
+import Modal from 'react-bootstrap/Modal';
+import { displayOrderCompareFn } from '../utilties';
+
+const defaultModalState = { showError: false, errorHttpStatus: null, errorMessage: null };
 
 const RecipeCompute = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
     const [foodItemSetup, setFoodItemSetup] = useState({ recipeId: '', servingSizeConversions: [] })
-    const [nutritionTable, setNutritionTable] = useState([]);
-    const [showNutritionTable, setShowNutritionTable] = useState(false);
+    const [nutritionTable, setNutritionTable] = useState(null);
+
+    const [modalState, setModalState] = useState(defaultModalState);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -22,26 +26,49 @@ const RecipeCompute = () => {
         const response = await fetch(`api/recipes/${id}`);
         const data = await response.json();
         setRecipe(data);
-        setFoodItemSetup({ recipeId: data.id, servingSizeConversions: data.amountsMade.map(am => ({ unitId: am.quantityUnitId, quantity: "" }))})
+        const newFoodItemSetup = { name: recipe.name, recipeId: data.id, servingSizeConversions: data.amountsMade.map(am => ({ unitId: am.quantityUnitId, quantity: "", amountMade: am })) };
+        setFoodItemSetup(newFoodItemSetup)
     }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        const response = await fetch('/api/recipes/createFoodItemForRecipe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(foodItemSetup),
-        });
-        if (response.ok) {
-            const data = await response.json();
+        const hasErrors = validateAndSetFoodItemSetup(foodItemSetup);
 
-            navigate(`/fooditemform/${data.foodItemId}`);
-        }
-        else {
-            console.error("Could not POST data.");
+        if (!hasErrors) {
+            try {
+                const response = await fetch('/api/recipes/createFoodItemForRecipe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(foodItemSetup),
+                });
+    
+                if (response.ok) {
+                    const data = await response.json();
+    
+                    navigate(`/FoodItemForm/${data.foodItemId}`);
+                }
+                else {
+                    setModalState(
+                        {
+                            ...defaultModalState
+                          , showError: true
+                          , errorHttpStatus: response.status
+                          , errorMessage: (await response.text())?.toString()?.trim() ?? response.statusText
+                        }
+                    );
+                }
+            }
+            catch(err) {
+                setModalState(
+                    {
+                        ...defaultModalState
+                      , showError: true
+                      , errorMessage: await err.toString()
+                    }
+                );
+            }
         }
     }
 
@@ -50,14 +77,15 @@ const RecipeCompute = () => {
         const data = await response.json();
 
         setNutritionTable(data);
-        setShowNutritionTable(true);
     }
 
     const handleServingSizeChange = (index, e) => {
         const { name, value } = e.target;
         const servingSizes = [...foodItemSetup.servingSizeConversions];
         servingSizes[index] = { ...servingSizes[index], [name]: value };
-        setFoodItemSetup({ ...foodItemSetup, servingSizeConversions: servingSizes});
+        const newFoodItemSetup = { ...foodItemSetup, servingSizeConversions: servingSizes };
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
     };
 
     const handleCalculateOtherRows = (index) => {
@@ -69,13 +97,69 @@ const RecipeCompute = () => {
             newServingSizes[i].quantity = ratio * recipe.amountsMade[i].quantity;
         }
 
-        setFoodItemSetup({ ...foodItemSetup, servingSizeConversions: newServingSizes});
+        const newFoodItemSetup = { ...foodItemSetup, servingSizeConversions: newServingSizes};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
     }
+
+    const validateAndSetFoodItemSetup = (foodItemSetup) => {
+        const newFoodItemSetup = { ... foodItemSetup, "-show-errors": true };
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        
+        setFoodItemSetup(newFoodItemSetup);
+        return newFoodItemSetup["-has-errors"];
+    }
+
+    const validateFoodItemSetupAndMarkAsChanged = (newFoodItemSetup) => {
+        return validateFoodItemSetup(newFoodItemSetup);
+    }
+
+    const validateFoodItemSetup = (newFoodItemSetup) => {
+        let hasErrors = false;
+
+        hasErrors = validateFoodItemSetupServingSizeConversions(newFoodItemSetup) || hasErrors;
+
+        newFoodItemSetup["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateFoodItemSetupServingSizeConversions = (newFoodItemSetup) => {
+        let hasErrors = false;
+        const newServingSizeConversions = [... newFoodItemSetup.servingSizeConversions];
+
+        for (const newServingSizeConversion of newServingSizeConversions) {
+            hasErrors = validateServingSizeConversion(newServingSizeConversion) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateServingSizeConversion = (newServingSizeConversion) => {
+        let hasErrors = false;
+
+        var quantityFloat = parseFloat(newServingSizeConversion.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            newServingSizeConversion["-error-quantity"] = "Serving size quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            newServingSizeConversion["-error-quantity"] = "Serving size quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete newServingSizeConversion["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
 
     return (
         <form onSubmit={handleSubmit} autoComplete='Off'>
             <h4>Compute Recipe Nutrition</h4>
-            <div className="row me-3">
+            <div className="row mb-3">
                 <label htmlFor="recipe-name" className="col-sm-1 col-form-label">Name:</label>
                 <div className="col-sm-4">
                     <input
@@ -84,17 +168,6 @@ const RecipeCompute = () => {
                         name="name"
                         className="form-control"
                         value={recipe.name}
-                        readOnly
-                    />
-                </div>
-                <label htmlFor="recipe-source" className="col-sm-1 col-form-label">Source:</label>
-                <div className="col-sm-4">
-                    <input
-                        id="recipe-source"
-                        type="text"
-                        name="source"
-                        className="form-control"
-                        value={recipe.source}
                         readOnly
                     />
                 </div>
@@ -119,14 +192,14 @@ const RecipeCompute = () => {
                 </tbody>
             </table>
             <button type="button" className='btn btn-primary mb-3' onClick={() => handleCompute(id)}>Generate Table</button>
-            {showNutritionTable && (
+            {nutritionTable && (
                 <>
                     <h5>Nutrition</h5>
                     <table className='table table-striped table-bordered'>
                         <thead>
                             <tr>
                                 <th scope='col'>Nutrient</th>
-                                {(recipe.ingredients.map((ingredient, index) => (
+                                {(nutritionTable.recipeIngredients.toSorted(displayOrderCompareFn).map((ingredient, index) => (
                                     <th key={index} scope="col">{ingredient.foodItemName}</th>
                                 )))}
                                 <th scope="col">Total</th>
@@ -137,7 +210,7 @@ const RecipeCompute = () => {
                                 return ( 
                                 <tr key={index}>
                                     <th scope="row">{nutrientSummary.nutrientName}</th>
-                                    {(recipe.ingredients.map((ingredient, index) => {
+                                    {(nutritionTable.recipeIngredients.toSorted(displayOrderCompareFn).map((ingredient, index) => {
                                         const [foodItemContribution] = nutrientSummary.foodItemContributions.filter(fic => fic.foodItemId === ingredient.foodItemId);
                                         const rounded = Math.round(foodItemContribution.nutrientQuantity)
                                         return (
@@ -159,25 +232,25 @@ const RecipeCompute = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {recipe.amountsMade.map((amountsMade, index) => (
+                            {foodItemSetup.servingSizeConversions.map((ssc, index) => (
                                 <tr key={index}>
-                                    <td><span className='form-control'>{amountsMade.quantityUnitName}</span></td>
-                                    <td><span className='form-control'>{amountsMade.quantity}</span></td>
+                                    <td><span className='form-control'>{ssc.amountMade.quantityUnitName}</span></td>
+                                    <td><span className='form-control'>{ssc.amountMade.quantity}</span></td>
                                     <td>
-                                        <label className='visually-hidden' htmlFor={`servingSize-quantity-${index}`}>Quantity ({amountsMade.quantityUnitName}):</label>
-                                        <div className="input-group mb-3">
+                                        <label className='visually-hidden' htmlFor={`servingSize-quantity-${index}`}>Quantity ({ssc.amountMade.quantityUnitName}):</label>
+                                        <div className="input-group">
                                             <input
                                                 id={`servingSize-quantity-${index}`}
                                                 type="number"
                                                 name="quantity"
-                                                className="form-control"
-                                                value={foodItemSetup.servingSizeConversions[index].quantity}
+                                                className={`form-control ${(foodItemSetup["-show-errors"] && ssc["-error-quantity"]) ? "is-invalid" : ""}`}
+                                                value={ssc.quantity}
                                                 onChange={(e) => handleServingSizeChange(index, e)}
-                                                placeholder={amountsMade.quantityUnitName}
-                                                required
+                                                placeholder={ssc.quantityUnitName}
                                             />
                                             <button className="btn btn-secondary" type="button" onClick={() => handleCalculateOtherRows(index)}>Calculate Other Rows</button>
                                         </div>
+                                        {(foodItemSetup["-show-errors"] && (<div className='error-message'>{ssc["-error-quantity"]}</div>))}
                                     </td>
                                 </tr>
                             ))}
@@ -191,6 +264,26 @@ const RecipeCompute = () => {
                     </div>
                 </>
             )}
+
+            <Modal show={modalState.showError}>
+                <Modal.Header><h3 className='text-center mb-0 fst-italic'>Oh, No!</h3></Modal.Header>
+                <Modal.Body>
+                    <div className='fw-bold mb-2'>An unexpected error has occurred.</div>
+                    {modalState.errorHttpStatus && (
+                        <div className='px-2'>HTTP {modalState.errorHttpStatus}</div>
+                    )}
+                    {modalState.errorMessage && (
+                        <div className='px-2'>
+                            <textarea id="error-textarea" disabled="disabled" defaultValue={modalState.errorMessage} style={{fontSize: ".75em", maxHeight: "10em"}} readOnly className='form-control font-monospace'/>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
         </form>
     );
 }

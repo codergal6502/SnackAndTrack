@@ -9,6 +9,7 @@ namespace SnackAndTrack.WebApp.Controllers {
     [Route("api/[controller]")]
     [ApiController]
     public class RecipesController : ControllerBase {
+        private static readonly JsonSerializerOptions JSON_SERIALIZATION_OPTIONS = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         private readonly SnackAndTrackDbContext _context;
 
         public RecipesController(SnackAndTrackDbContext context) {
@@ -121,7 +122,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             var matchingServingSizeConversion = model.ServingSizeConversions.Single(ssc => firstAmountMade.Unit.Id == ssc.UnitId);
             var servingRecipeRatio = matchingServingSizeConversion.Quantity / firstAmountMade.Quantity;
             var table = await GenerateComputedFoodItemTable(recipe);
-            var tableJson = JsonSerializer.Serialize(table);
+            var tableJson = JsonSerializer.Serialize(table, JSON_SERIALIZATION_OPTIONS);
 
             FoodItem foodItem = new FoodItem {
                 Id = Guid.NewGuid()
@@ -179,11 +180,20 @@ namespace SnackAndTrack.WebApp.Controllers {
         }
 
         private async Task<RecipeComputedFoodItemTableModel> GenerateComputedFoodItemTable(Recipe recipe) {
-            RecipeComputedFoodItemTableModel table = new() { NutrientSummaries = [] };
+            RecipeComputedFoodItemTableModel table = new() { RecipeIngredients = [], NutrientSummaries = [] };
 
             var allNutrients = recipe.RecipeIngredients.SelectMany(ri => ri.FoodItem.FoodItemNutrients).Select(fin => fin.Nutrient).Distinct();
 
             foreach (var recipeIngredient in recipe.RecipeIngredients) {
+
+                // Summarize the recipe.
+                table.RecipeIngredients.Add(new RecipeComputedFoodItemTableModel.RecipeIngredient {
+                    FoodItemId = recipeIngredient.FoodItem.Id
+                  , FoodItemName = recipeIngredient.FoodItem.Name
+                  , FoodItemQuantity = recipeIngredient.Quantity
+                  , DisplayOrder = recipeIngredient.DisplayOrder
+                });
+
                 // A little dimensional analysis. We want nutrient quantity. We have quantity of ingredient.
 
                 // ru is recipe units

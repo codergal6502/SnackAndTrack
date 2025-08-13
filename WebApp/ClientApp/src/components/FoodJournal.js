@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { useSearchParams } from 'react-router-dom';
 import Modal from 'react-bootstrap/Modal';
-import { DateTime} from "luxon";
+import { DateTime } from "luxon";
 
 const FoodJournal = () => {
     // make it so users can bookmark and navigate
@@ -399,7 +399,7 @@ query GetFoodJournalEntries($date: DateOnly) {
                 foodItem: foodItemPopupState.selectedFoodItemOption.foodItem
               , unit: foodItemPopupState.selectedUnitOption.unit
               , quantity: foodItemPopupState.quantity
-              , time: foodItemPopupState.time
+              , time: DateTime.fromISO(foodItemPopupState.time)
               , date: journalState.date
               , nutrients: { }
             }
@@ -409,7 +409,7 @@ query GetFoodJournalEntries($date: DateOnly) {
               , foodItemId: newJournalEntry.foodItem.id
               , unitId: newJournalEntry.unit.id
               , quantity: newJournalEntry.quantity
-              , time: newJournalEntry.time
+              , time: newJournalEntry.time.toLocaleString(DateTime.TIME_24_SIMPLE)
               , date: newJournalEntry.date
             };
 
