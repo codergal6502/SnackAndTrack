@@ -290,7 +290,7 @@ query GetFoodJournalEntries($date: DateOnly) {
     const handleFoodItemTimeChange = (time) => {
         const dt = DateTime.fromISO(time);
         console.log(dt);
-        const newFoodItemPopupState = {... foodItemPopupState, time: time, "-dt-object]": dt };
+        const newFoodItemPopupState = {... foodItemPopupState, time: time, "-dt-object": dt };
         populateErrorsInFoodItemPopup(newFoodItemPopupState);
         setFoodItemPopupState(newFoodItemPopupState);
     }
@@ -696,9 +696,19 @@ query GetFoodJournalEntries($date: DateOnly) {
                     {journalState.journalEntries.map((je, entryIndex) => 
                         <tr key={entryIndex}>
                             <td>
-                                <div className="position-relative">
-                                    <label readOnly className='form-label'>{je.foodItem && je.unit && je.quantity ? `${je.foodItem.name}, ${je.quantity} ${je.unit.name} ${je["-dt-object"]?.invalid ? "" : je["-dt-object"].toLocaleString(DateTime.TIME_SIMPLE)}` : ''}</label>
-                                    <button className='btn btn-secondary position-absolute end-0 top-50 translate-middle-y' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
+                                <div className="container" style={{width: "100%"}}>
+                                    <div className="d-flex align-items-center" role="group" aria-label="Button group">
+                                        <div className="text-secondary p-2 flex-grow-1">
+                                            {je.foodItem && je.unit && je.quantity && (<>
+                                                <p className="mb-0 fw-bold">{je.foodItem.name}</p>
+                                                <p className="mb-0 px-2">{je.quantity} {je.unit.name}</p>
+                                                {!(je["-dt-object"]?.invalid) && (<p className="mb-0 px-2">{je["-dt-object"]?.toLocaleString(DateTime.TIME_SIMPLE)}</p>)}
+                                            </>)}
+                                        </div>
+                                        <div>
+                                            <button className='btn btn-secondary' onClick={() => editFoodOnClick(entryIndex)}><i className="bi bi-pencil-square"></i></button>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             {journalState.nutrientTargets?.map((nt, targetIndex) =>
