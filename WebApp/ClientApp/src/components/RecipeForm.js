@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { fetchGraphQl, displayOrderCompareFn, useUnits, ungroupOptions, uniqueFilterFn } from '../utilties';
 import Select from 'react-select';
+import Modal from 'react-bootstrap/Modal';
 
 const emptyAmountMade = { quantityUnitId: "", quantity: 0, "-unitOptions": [ ] };
 const emptyIngredient = { foodItemId: "", quantityUnitId: "", quantity: 0, "-foodItemOptions": [ ], "-unitOptions": [ ] };
 const amountMadeIsEmpty = am => "" == ((am.quantityUnitId || "").toString() + (am.quantity || "").toString()).trim();
 const ingredientIsEmpty = i => "" == ((i.foodItemId || "").toString() + (i.quantityUnitId || "").toString() + (i.quantity || "").toString()).trim();
+const defaultModalState = { showSuccess: false, showDuplicated: false, showError: false, errorHttpStatus: null, errorMessage: null };
 
 const RecipeForm = () => {
-    const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [], amountsMade: [  ] });
+    const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [ ], amountsMade: [ ] });
     const [unitDictionary, unitOptions] = useUnits();
     const [ready, setReady] = useState();
+    const [customLabelSelectMenuIsOpen, setCustomLabelSelectMenuIsOpen] = useState(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    const [modalState, setModalState] = useState(defaultModalState);
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => { document.title = "Snack and Track: Edit Recipe" }, [])
 
@@ -111,7 +117,7 @@ query ($id: Guid!) {
         const amountsMade = [...recipe.amountsMade];
         amountsMade[index] = { ...amountsMade[index], [name]: value };
         const newRecipe = checkEmptiesAndAddAmountMade({ ...recipe, amountsMade: amountsMade});
-        validateRecipe(newRecipe);
+        validateRecipeAndMarkAsChanged(newRecipe);
         setRecipe(newRecipe);
     }
 
@@ -158,7 +164,7 @@ query ($id: Guid!) {
         const newAmountsMade = [...recipe.amountsMade];
         newAmountsMade[index].quantityUnitId = unitOption.value;
         const newRecipe = checkEmptiesAndAddAmountMade({ ...recipe, amountsMade: newAmountsMade});
-        validateRecipe(newRecipe);
+        validateRecipeAndMarkAsChanged(newRecipe);
         setRecipe(newRecipe);
     }
 
@@ -171,7 +177,7 @@ query ($id: Guid!) {
         const ingredients = [...recipe.ingredients];
         ingredients[index] = { ...ingredients[index], [name]: value };
         const newRecipe = checkEmptiesAndAddIngredient({ ...recipe, ingredients: ingredients});
-        validateRecipe(newRecipe);
+        validateRecipeAndMarkAsChanged(newRecipe);
         setRecipe(newRecipe);
     }
 
@@ -207,7 +213,7 @@ query ($id: Guid!) {
     const fetchIngredientFoodItemOptions = async(index, q) => {
         const query = `
 query foodItems($query: String) {
-  foodItems(query: $query, pageSize: 10) {
+  foodItems(query: $query, pageSize: 10, usableAsRecipeIngredient: true) {
     totalCount
     totalPages
     items {
@@ -268,11 +274,11 @@ query foodItems($query: String) {
             const newIngredients = [... recipe.ingredients];
             newIngredients[index]["-foodItemOptions"] = options;
             const newRecipe = {...recipe, ingredients: newIngredients };
-            validateRecipe(newRecipe);
+            validateRecipeAndMarkAsChanged(newRecipe);
             setRecipe(newRecipe);
         }
         catch (error) {
-            console.error("Request to /api/fooditems failed.", error)
+            debugger;
         }
     };
 
@@ -295,7 +301,7 @@ query foodItems($query: String) {
             newIngredients[index] = newIngredient;
 
             const newRecipe = checkEmptiesAndAddIngredient({...recipe, ingredients: newIngredients});
-            validateRecipe(newRecipe);
+            validateRecipeAndMarkAsChanged(newRecipe);
             setRecipe(newRecipe);
         }
         else {
@@ -320,14 +326,14 @@ query foodItems($query: String) {
         newIngredients[index].quantityUnitId = unitOption.value;
 
         const newRecipe = checkEmptiesAndAddIngredient({ ...recipe, ingredients: newIngredients});
-        validateRecipe(newRecipe);
+        validateRecipeAndMarkAsChanged(newRecipe);
         setRecipe(newRecipe);
     }
 
     const checkEmptiesAndAddIngredient = (newRecipe) => {
         // If all of the ingredient fields are set for all ingredients, add a new one.
         // This facilitates tabbing through.
-        const allHaveValues = newRecipe.ingredients.reduce((acc, cur) => acc && (cur.foodItemId && cur.quantityUnitId && parseFloat(cur.quantity)) ? true : false, true);
+        const allHaveValues = newRecipe.ingredients.reduce((acc, cur) => acc && (cur.foodItemId && cur.quantityUnitId && (parseFloat(cur.quantity) || parseFloat(cur.percent))) ? true : false, true);
         if (allHaveValues) {
             newRecipe = {...newRecipe, ingredients: [... newRecipe.ingredients, {...emptyIngredient} ]}
         }
@@ -338,7 +344,9 @@ query foodItems($query: String) {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setRecipe({ ...recipe, [name]: value });
+        const newRecipe = { ... recipe, [name]: value };
+        validateRecipeAndMarkAsChanged(newRecipe);
+        setRecipe(newRecipe);
     };
 
     const handleSubmit = async (e) => {
@@ -352,42 +360,96 @@ query foodItems($query: String) {
               , amountsMade: [... recipe.amountsMade.filter(am => !amountMadeIsEmpty(am))]
               , ingredients: [... recipe.ingredients.filter(i => !ingredientIsEmpty(i))]
             };
-            console.log(recipeToSubmit);
 
-            if (id) {
-                const response = await fetch(`/api/recipes/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(recipeToSubmit),
-                });
-                
-                setRecipe(recipeToSubmit);
-                navigate(`/RecipeForm/${id}`);
-            } else {
-                const response = await fetch('/api/recipes', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(recipeToSubmit),
-                });
+            try {
+                if (id) {
+                    const response = await fetch(`/api/recipes/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(recipeToSubmit),
+                    });
+                    
+                    if (response.ok) {
+                        setRecipe(recipeToSubmit);
+                        setModalState({...defaultModalState, showSuccess: true});
+                        setHasUnsavedChanges(false);
+                    }
+                    else {
+                        setModalState(
+                            {
+                                ...defaultModalState
+                              , showError: true
+                              , errorHttpStatus: response.status
+                              , errorMessage: (await response.text())?.toString()?.trim() ?? response.statusText
+                            }
+                        );
+                    }
+                } else {
+                    const response = await fetch('/api/recipes', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(recipeToSubmit),
+                    });
 
-                const json = await response.json();
-                setRecipe({...recipeToSubmit, id: json.id});
-                navigate(`/RecipeForm/${json.id}`);
+                    if (response.ok) {
+                        const json = await response.json();
+                        setRecipe({...recipeToSubmit, id: json.id});
+                        navigate(`/RecipeForm/${json.id}`);
+                        setModalState({...defaultModalState, showSuccess: true});
+                        setHasUnsavedChanges(false);
+                    }
+                    else {
+                        setModalState(
+                            {
+                                ...defaultModalState
+                              , showError: true
+                              , errorHttpStatus: response.status
+                              , errorMessage: (await response?.text())?.toString()?.trim() ?? response.statusText
+                            }
+                        );
+                    }
+                }
+            }
+            catch (err) {
+                setModalState(
+                    {
+                        ...defaultModalState
+                      , showError: true
+                      , errorMessage: await err.toString()
+                    }
+                );
             }
         }
     };
 
+    const handleComputeNutritionButton = () => {
+        navigate(`/RecipeCompute/${id}`);
+    }
+
+    const handleDuplicateButton = () => {
+        const newRecipe = { ... recipe, "-show-errors": false };
+        setRecipe(newRecipe);
+        setHasUnsavedChanges(true);
+        setModalState({...modalState, showDuplicated: true});
+        navigate(`/RecipeForm`);
+    }
 
     const validateAndSetRecipe = (recipe) => {
         const newRecipe = { ... recipe, "-show-errors": true };
-        validateRecipe(newRecipe);
+        validateRecipeAndMarkAsChanged(newRecipe);
         
         setRecipe(newRecipe);
         return newRecipe["-has-errors"];
+    }
+
+    const validateRecipeAndMarkAsChanged = (newRecipe) => {
+        setHasUnsavedChanges(true);
+
+        return validateRecipe(newRecipe);
     }
 
     const validateRecipe = (newRecipe) => {
@@ -643,11 +705,15 @@ query foodItems($query: String) {
                                 <Select
                                     options={ingredient["-foodItemOptions"]}
                                     onInputChange={(text) => handleIngredientLookupInputChange(index, text)}
-                                    onChange={selectedOption => { handleIngredientSelectionChange(index, selectedOption); }}
+                                    onChange={selectedOption => handleIngredientSelectionChange(index, selectedOption)}
                                     isClearable
                                     value={ingredient["-foodItemOptions"]?.find(option => option.value === ingredient.foodItemId) || ""}
                                     classNamePrefix="react-select"
                                     className={`${recipe["-show-errors"] && ingredient["-error-foodItemId"] ? 'is-invalid' : ''}`}
+                                    onMenuOpen={() => { setCustomLabelSelectMenuIsOpen(`ingredient-selection-${index}`); }}
+                                    onMenuClose={() => { setCustomLabelSelectMenuIsOpen(null); }}
+                                    menuIsOpen={customLabelSelectMenuIsOpen == `ingredient-selection-${index}`}
+                                    getOptionLabel={(option) => (customLabelSelectMenuIsOpen && option["-foodItem"]?.brand) ? `${option.label} (${option["-foodItem"]?.brand})` : option.label}
                                 />
                                 {(recipe["-show-errors"] && (<div className='error-message'>{ingredient["-error-foodItemId"]}</div>))}
                             </td>
@@ -661,7 +727,6 @@ query foodItems($query: String) {
                                     value={ingredient.quantity}
                                     onChange={(e) => handleIngredientChange(index, e)}
                                     placeholder="Quantity"
-                                    required
                                 />
                                 {(recipe["-show-errors"] && (<div className='error-message'>{ingredient["-error-quantity"]}</div>))}
                             </td>
@@ -693,18 +758,57 @@ query foodItems($query: String) {
             <button type="button" className="btn btn-secondary mb-3" onClick={handleAddIngredientButton}>Add Ingredient</button>
 
             <h4>Actions</h4>
-
-            <div className="row mb-3">
-                <div className="col-auto align-self-end">
-                    <button type="submit" className="btn btn-primary">Save</button>
+            {hasUnsavedChanges && (<div className='fst-italic mb-2'>You have unsaved changes. Please save to perform actions other than saving or cancelling.</div>)}
+            <div className="mb-3 btn-toolbar d-flex justify-content-between" role="toolbar" aria-label="Actions">
+                <div className="btn-group" role="group" aria-label="First group">
+                    <button type="submit" className="btn btn-primary">Save Recipe</button>
+                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
+                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleDuplicateButton}>Duplicate</button>
                 </div>
-                <div className="col-auto align-self-end">
-                    <button type="submit" className="btn btn-secondary">Make Available in Food Journal</button>
-                </div>
-                <div className="col-auto align-self-end">
-                    <button type="button" className="btn btn-secondary" onClick={() => navigate(-1) }>Cancel</button>
+                <div className="btn-group" role="group" aria-label="Second group">
+                    <button type="button" className="btn btn-dark" onClick={() => navigate(-1)}>Cancel</button>
                 </div>
             </div>
+            
+            <Modal show={modalState.showSuccess}>
+                <Modal.Header><h3>Recipe Saved</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Recipe Saved</div></Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+            
+            <Modal show={modalState.showDuplicated}>
+                <Modal.Header><h3>Recipe Duplicated</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Press <span className='fst-italic'>Save</span> to finish duplicating the recipe.</div></Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={modalState.showError}>
+                <Modal.Header><h3 className='text-center mb-0 fst-italic'>Oh, No!</h3></Modal.Header>
+                <Modal.Body>
+                    <div className='fw-bold mb-2'>An unexpected error has occurred.</div>
+                    {modalState.errorHttpStatus && (
+                        <div className='px-2'>HTTP {modalState.errorHttpStatus}</div>
+                    )}
+                    {modalState.errorMessage && (
+                        <div className='px-2'>
+                            <textarea id="error-textarea" disabled="disabled" defaultValue={modalState.errorMessage} style={{fontSize: ".75em", maxHeight: "10em"}} readOnly className='form-control font-monospace'/>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
         </form>
     );
 };

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SnackAndTrack.DatabaseAccess;
@@ -120,6 +121,7 @@ namespace SnackAndTrack.WebApp.Controllers {
             var matchingServingSizeConversion = model.ServingSizeConversions.Single(ssc => firstAmountMade.Unit.Id == ssc.UnitId);
             var servingRecipeRatio = matchingServingSizeConversion.Quantity / firstAmountMade.Quantity;
             var table = await GenerateComputedFoodItemTable(recipe);
+            var tableJson = JsonSerializer.Serialize(table);
 
             FoodItem foodItem = new FoodItem {
                 Id = Guid.NewGuid()
@@ -129,6 +131,7 @@ namespace SnackAndTrack.WebApp.Controllers {
               , RecipeBatchDate = DateOnly.FromDateTime(DateTime.Now)
               , UsableInFoodJournal = true
               , UsableAsRecipeIngredient = false
+              , RecipeNutritionTableJson = tableJson
               , Notes = recipe.Notes
               , ServingSizes = []
               , FoodItemNutrients = []
