@@ -21,7 +21,6 @@ const RecipeForm = () => {
     const [modalState, setModalState] = useState(defaultModalState);
     const { id } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => { document.title = "Snack and Track: Edit Recipe" }, [])
 
@@ -358,6 +357,7 @@ query foodItems($query: String) {
 
             const recipeToSubmit = {
                 ...recipe
+              , "-show-errors": false
               , amountsMade: [... recipe.amountsMade.filter(am => !amountMadeIsEmpty(am))]
               , ingredients: [... recipe.ingredients.filter(i => !ingredientIsEmpty(i))]
             };

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useResolvedPath } from 'react-router-dom';
-
 import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces, handleBasicHtmlAnchorClick } from '../utilties';
+
 import Select from 'react-select';
+import Modal from 'react-bootstrap/Modal';
 
 const unitPercent = {
     "id": "",
@@ -18,6 +19,8 @@ const emptyNutrient = { quantity: "", percent: null, nutrientId: null, unitId: n
 const servingSizeIsEmpty = s => "" == ((s.unitId || "").toString() + (s.quantity || "").toString()).trim();
 const nutrientIsEmpty = n => "" == ((n.nutrientId || "").toString() + (n.quantity || "").toString() + (n.unitId || "").toString()).trim();
 
+const defaultModalState = { showSuccess: false, showDuplicated: false, showError: false, errorHttpStatus: null, errorMessage: null };
+
 const FoodItemForm = () => {
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: null, servingSizes: [ {... emptyServingSize} ], nutrients: [ {... emptyNutrient} ], "-show-errors": false });
 
@@ -25,11 +28,13 @@ const FoodItemForm = () => {
     const [unitOptions, setUnitOptions] = useState();
     const [nutrientOptions, setNutrientOptions] = useState();
     const [nutritionTable, setNutritionTable] = useState(null);
-
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    
     const foodItemPath = useResolvedPath("/RecipeForm");
 
     const [ready, setReady] = useState();
 
+    const [modalState, setModalState] = useState(defaultModalState);
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -265,7 +270,14 @@ const FoodItemForm = () => {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new Error(`Request to ${url} reponse status is ${response.status}.`);
+                setModalState(
+                    {
+                        ...defaultModalState
+                      , showError: true
+                      , errorHttpStatus: response.status
+                      , errorMessage: (await response.text())?.toString()?.trim() ?? response.statusText
+                    }
+                );
             }
 
             const units = await response.json();
@@ -286,8 +298,14 @@ const FoodItemForm = () => {
 
             setUnitOptions(groupedOptions);
         }
-        catch (error) {
-            console.error(`Request to ${url} failed.`, error)
+        catch (err) {
+            setModalState(
+                {
+                    ...defaultModalState
+                  , showError: true
+                  , errorMessage: await err.toString()
+                }
+            );
         }
     }
 
@@ -544,34 +562,29 @@ query ($id: Guid!) {
         }
     }
 
-/*
-
-// this might be useful for validation and other form stuff????
-
-const ParentComponent = ({ prop1, prop2, prop3, children }) => {
-    return (
-        <div>
-            {}
-            <div>{children}</div>
-        </div>
-    );
-};
-
-*/
+    const handleDuplicateButton = () => {
+        // const newRecipe = { ... recipe, "-show-errors": false };
+        // setRecipe(newRecipe);
+        // setHasUnsavedChanges(true);
+        // setModalState({...modalState, showDuplicated: true});
+        // navigate(`/RecipeForm`);
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         const hasErrors = validateAndSetFoodItem(foodItem);
 
         if (!hasErrors) {
+
             const foodItemToSubmit = {
                 ...foodItem
+              , "-show-errors": false
               , servingSizes: foodItem.servingSizes.filter(s => !servingSizeIsEmpty(s))
               , nutrients: foodItem.nutrients.filter(n => !nutrientIsEmpty(n))
             };
             
-            if (id) {
-                try {
+            try {
+                if (id) {
                     const response = await fetch(`/api/fooditems/${id}`, {
                         method: 'PUT',
                         headers: {
@@ -580,14 +593,22 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         body: JSON.stringify(foodItemToSubmit),
                     });
                     
-                    setFoodItem(foodItemToSubmit);
-                    navigate(`/FoodItemForm/${id}`);
-                }
-                catch(err) {
-                    console.error(err);
-                }
-            } else {
-                try {
+                    if (response.ok) {
+                        setFoodItem(foodItemToSubmit);
+                        setModalState({...defaultModalState, showSuccess: true});
+                        setHasUnsavedChanges(false);
+                    }
+                    else {
+                        setModalState(
+                            {
+                                ...defaultModalState
+                              , showError: true
+                              , errorHttpStatus: response.status
+                              , errorMessage: (await response.text())?.toString()?.trim() ?? response.statusText
+                            }
+                        );
+                    }
+                } else {
                     const response = await fetch('/api/fooditems', {
                         method: 'POST',
                         headers: {
@@ -596,20 +617,35 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                         body: JSON.stringify(foodItemToSubmit),
                     });
 
-                    const json = await response.json();
-                    setFoodItem(foodItemToSubmit);
-                    navigate(`/FoodItemForm/${json.id}`);
-                }
-                catch(err) {
-                    console.error(err);
+                    if (response.ok) {
+                        const json = await response.json();
+                        setFoodItem(foodItemToSubmit);
+                        navigate(`/FoodItemForm/${json.id}`);
+                        setModalState({...defaultModalState, showSuccess: true});
+                        setHasUnsavedChanges(false);
+                    }
+                    else {
+                        setModalState(
+                            {
+                                ...defaultModalState
+                              , showError: true
+                              , errorHttpStatus: response.status
+                              , errorMessage: (await response?.text())?.toString()?.trim() ?? response.statusText
+                            }
+                        );
+                    }
                 }
             }
+            catch (err) {
+                setModalState(
+                    {
+                        ...defaultModalState
+                      , showError: true
+                      , errorMessage: await err.toString()
+                    }
+                );
+            }
         }
-    };
-
-    const handleAnchorClick = async (e) => {
-        e.preventDefault();
-        navigate(e.currentTarget.pathname);
     };
 
     return ready && (
@@ -931,6 +967,46 @@ const ParentComponent = ({ prop1, prop2, prop3, children }) => {
                     </div>
                 </>
             )}
+            
+            <Modal show={modalState.showSuccess}>
+                <Modal.Header><h3>Recipe Saved</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Recipe Saved</div></Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+            
+            <Modal show={modalState.showDuplicated}>
+                <Modal.Header><h3>Recipe Duplicated</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Press <span className='fst-italic'>Save</span> to finish duplicating the recipe.</div></Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={modalState.showError}>
+                <Modal.Header><h3 className='text-center mb-0 fst-italic'>Oh, No!</h3></Modal.Header>
+                <Modal.Body>
+                    <div className='fw-bold mb-2'>An unexpected error has occurred.</div>
+                    {modalState.errorHttpStatus && (
+                        <div className='px-2'>HTTP {modalState.errorHttpStatus}</div>
+                    )}
+                    {modalState.errorMessage && (
+                        <div className='px-2'>
+                            <textarea id="error-textarea" disabled="disabled" defaultValue={modalState.errorMessage} style={{fontSize: ".75em", maxHeight: "10em"}} readOnly className='form-control font-monospace'/>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className='text-center'>
+                        <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
         </form>
     );
 };
