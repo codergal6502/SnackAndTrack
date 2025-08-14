@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from "react-router-dom";
 
 import Modal from 'react-bootstrap/Modal';
-import { displayOrderCompareFn } from '../utilties';
+import Select from 'react-select';
+
+import { displayOrderCompareFn, yesNoOptions } from '../utilties';
+import { DateTime } from "luxon";
 
 const defaultModalState = { showError: false, errorHttpStatus: null, errorMessage: null };
+const markOthersOptions = [{label: "Mark Not Usable in Food Journal", value: true}, {label: "Do Not Modify", value: false}];
+const todayString = DateTime.now().toISODate();
 
 const RecipeCompute = () => {
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
-    const [foodItemSetup, setFoodItemSetup] = useState({ recipeId: '', servingSizeConversions: [] })
+    const [foodItemSetup, setFoodItemSetup] = useState({ recipeId: '', usableInFoodJournal: true, markOthersNotUsableInFoodJournal: true, batchDate: todayString, servingSizeConversions: [] })
     const [nutritionTable, setNutritionTable] = useState(null);
 
     const [modalState, setModalState] = useState(defaultModalState);
@@ -26,7 +31,7 @@ const RecipeCompute = () => {
         const response = await fetch(`api/recipes/${id}`);
         const data = await response.json();
         setRecipe(data);
-        const newFoodItemSetup = { name: recipe.name, recipeId: data.id, servingSizeConversions: data.amountsMade.map(am => ({ unitId: am.quantityUnitId, quantity: "", amountMade: am })) };
+        const newFoodItemSetup = { name: data.name, recipeId: data.id, usableInFoodJournal: true, markOthersNotUsableInFoodJournal: true, batchDate: todayString, servingSizeConversions: data.amountsMade.map(am => ({ unitId: am.quantityUnitId, quantity: "", amountMade: am })) };
         setFoodItemSetup(newFoodItemSetup)
     }
 
@@ -79,7 +84,48 @@ const RecipeCompute = () => {
         setNutritionTable(data);
     }
 
-    const handleServingSizeChange = (index, e) => {
+    const handleBatchDateInputChange = (newDateString) => {
+        const newDateObject = DateTime.fromISO(newDateString);
+        if (newDateObject?.isValid) {
+            newDateString = newDateObject.toISODate();
+        }
+        else {
+            newDateString = "";
+        }
+
+        const newFoodItemSetup = { ...foodItemSetup, batchDate: newDateString};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
+    }
+
+    const handleBatchDateClearButton = () => {
+        const newFoodItemSetup = { ...foodItemSetup, batchDate: ""};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
+    }
+
+    const handleUsableInFoodJournalChange = (selectedOptions) => {
+        const selectedOption = Array.isArray(selectedOptions) ? selectedOptions[0] : selectedOptions;
+        const newFoodItemSetup = { ...foodItemSetup, usableInFoodJournal: selectedOption.value};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
+    }
+
+    const handleMarkOthersNotUsableInFoodJournalChange = (selectedOptions) => {
+        const selectedOption = Array.isArray(selectedOptions) ? selectedOptions[0] : selectedOptions;
+        const newFoodItemSetup = { ...foodItemSetup, usableInFoodJournal: selectedOption.value};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
+    }
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        const newFoodItemSetup = { ...foodItemSetup, [name]: value};
+        validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
+        setFoodItemSetup(newFoodItemSetup);
+    }
+
+    const handleServingSizeInputChange = (index, e) => {
         const { name, value } = e.target;
         const servingSizes = [...foodItemSetup.servingSizeConversions];
         servingSizes[index] = { ...servingSizes[index], [name]: value };
@@ -168,7 +214,7 @@ const RecipeCompute = () => {
                         name="name"
                         className="form-control"
                         value={recipe.name}
-                        readOnly
+                        onChange={handleInputChange}
                     />
                 </div>
             </div>
@@ -222,7 +268,9 @@ const RecipeCompute = () => {
                             );}))}
                         </tbody>
                     </table>
-                    <h5>Food Item Serving Sizes</h5>
+
+                    <h5>Create Food Item</h5>
+                    <h6>Serving Sizes</h6>
                     <table className='table table-striped table-bordered'>
                         <thead>
                             <tr>
@@ -245,7 +293,7 @@ const RecipeCompute = () => {
                                                 name="quantity"
                                                 className={`form-control ${(foodItemSetup["-show-errors"] && ssc["-error-quantity"]) ? "is-invalid" : ""}`}
                                                 value={ssc.quantity}
-                                                onChange={(e) => handleServingSizeChange(index, e)}
+                                                onChange={(e) => handleServingSizeInputChange(index, e)}
                                                 placeholder={ssc.quantityUnitName}
                                             />
                                             <button className="btn btn-secondary" type="button" onClick={() => handleCalculateOtherRows(index)}>Calculate Other Rows</button>
@@ -256,10 +304,48 @@ const RecipeCompute = () => {
                             ))}
                         </tbody>
                     </table>
-                    <h5>Actions</h5>
+                    
+                    <h6>Options</h6>
+
+                    <div className="d-flex mb-3">
+                        <div className="me-3">
+                            <label htmlFor="usableInFoodJournal" className="form-label">Usable in Food Journal:</label>
+                            <Select
+                                id="usableInFoodJournal"
+                                options={yesNoOptions}
+                                name="usableInFoodJournal"
+                                value={yesNoOptions.filter(opt => opt.value == foodItemSetup.usableInFoodJournal)}
+                                defaultValue={{label: "Yes", value: true}}
+                                onChange={selectedOptions => { handleUsableInFoodJournalChange(selectedOptions) }}
+                                styles={{width: "100%"}}
+                            />
+                        </div>
+                        <div className="me-3">
+                            <label htmlFor="batchDate" className="form-label">Recipe Batch Date:</label>
+                            <div className="input-group">
+                                <input type='Date' id="batchDate" name="batchDate" className='form-control' value={foodItemSetup.batchDate} onChange={(e) => handleBatchDateInputChange(e.target.value)} />
+                                <button className="btn btn-outline-dark" style={{"border": "1px solid #ced4da"}} type="button" id="button-addon2" onClick={handleBatchDateClearButton}><i className="bi bi-x-circle"></i></button>
+                            </div>
+                        </div>
+                        <div className="me-3">
+                            <label htmlFor="Previous Batches" className="form-label">Previous Batches:</label>
+                            <Select
+                                id="markOthersNotUsableInFoodJournal"
+                                options={markOthersOptions}
+                                name="markOthersNotUsableInFoodJournal"
+                                value={markOthersOptions.filter(opt => opt.value == foodItemSetup.markOthersNotUsableInFoodJournal)}
+                                defaultValue={{label: "Mark Not Usable in Food Journal", value: true}}
+                                onChange={selectedOptions => { handleMarkOthersNotUsableInFoodJournalChange(selectedOptions) }}
+                                styles={{width: "100%"}}
+                            />
+                        </div>
+                    </div>
+
+                    <h6>Actions</h6>
+
                     <div className="row mb-3">
                         <div className="col-auto align-self-end">
-                            <button type="submit" className="btn btn-primary">Save</button>
+                            <button type="submit" className="btn btn-primary">Create Food Item</button>
                         </div>
                     </div>
                 </>

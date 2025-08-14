@@ -127,10 +127,10 @@ namespace SnackAndTrack.WebApp.Controllers {
             FoodItem foodItem = new FoodItem {
                 Id = Guid.NewGuid()
               , Name = recipe.Name
+              , UsableInFoodJournal = model.UsableInFoodJournal
+              , RecipeBatchDate = model.BatchDate
               , Brand = String.Empty
               , GeneratedFrom = recipe
-              , RecipeBatchDate = DateOnly.FromDateTime(DateTime.Now)
-              , UsableInFoodJournal = true
               , UsableAsRecipeIngredient = false
               , RecipeNutritionTableJson = tableJson
               , Notes = recipe.Notes
@@ -155,6 +155,13 @@ namespace SnackAndTrack.WebApp.Controllers {
               , Quantity = ns.TotalQuantity
               , Percent = null
             }).ToArray();
+
+            if (model.MarkOthersNotUsableInFoodJournal) {
+                var otherBatches = _context.FoodItems.Where(fi => fi.GeneratedFrom != null && fi.GeneratedFrom.Id == model.RecipeId).ToList();
+                foreach (var otherBatch in otherBatches) {
+                    otherBatch.UsableInFoodJournal = false;
+                }
+            }
 
             _context.Add(foodItem);
             _context.AddRange(foodItem.ServingSizes);
