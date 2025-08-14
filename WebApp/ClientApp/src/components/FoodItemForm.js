@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useResolvedPath } from 'react-router-dom';
-import { fetchGraphQl, displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces, handleBasicHtmlAnchorClick } from '../utilties';
+import { displayOrderCompareFn, ungroupOptions, yesNoOptions, roundToTwoPlaces, useUnits, useNutrients } from '../utilties';
 
 import Select from 'react-select';
 import Modal from 'react-bootstrap/Modal';
 
+// Options
 const unitPercent = {
     "id": "",
     "name": "Percent Daily Value",
@@ -13,36 +14,33 @@ const unitPercent = {
 }
 const unitPercentOption = { label: "Percent", value: "", unit: unitPercent, isPercentUnit: true };
 
+// Default or empty state bits.
 const emptyServingSize = { unitId: "", quantity: "", unitType: "" };
 const emptyNutrient = { quantity: "", percent: null, nutrientId: null, unitId: null };
+const defaultModalState = { showSuccess: false, showDuplicated: false, showError: false, errorHttpStatus: null, errorMessage: null };
 
+// Utilities
 const servingSizeIsEmpty = s => "" == ((s.unitId || "").toString() + (s.quantity || "").toString()).trim();
 const nutrientIsEmpty = n => "" == ((n.nutrientId || "").toString() + (n.quantity || "").toString() + (n.unitId || "").toString()).trim();
 
-const defaultModalState = { showSuccess: false, showDuplicated: false, showError: false, errorHttpStatus: null, errorMessage: null };
-
 const FoodItemForm = () => {
+    // Form and UI State Objects
     const [foodItem, setFoodItem] = useState({ name: '', brand: '', notes: '', generatedFromId: null, generatedFromName: null, servingSizes: [ {... emptyServingSize} ], nutrients: [ {... emptyNutrient} ], "-show-errors": false });
-
-    const [unitDictionary, setUnitDictionary] = useState();
-    const [unitOptions, setUnitOptions] = useState();
-    const [nutrientOptions, setNutrientOptions] = useState();
     const [nutritionTable, setNutritionTable] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-    
-    const foodItemPath = useResolvedPath("/RecipeForm");
-
+    const [modalState, setModalState] = useState(defaultModalState);
     const [ready, setReady] = useState();
 
-    const [modalState, setModalState] = useState(defaultModalState);
+    // Lookups and Options
+    const [unitDictionary, unitOptions] = useUnits();
+    const [_, nutrientOptions] = useNutrients();
+    
+    const foodItemPath = useResolvedPath("/RecipeForm");
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // TODO: after successful save, turn off show errors
-
+    // Loading
     useEffect(() => {
-        fetchNutrients();
-        fetchUnits();
         document.title = "Snack and Track: Edit Food Item";
     }, []);
 
@@ -58,6 +56,94 @@ const FoodItemForm = () => {
         }
     }, [ready, id])
 
+    const fetchFoodItem = async (id) => {
+        // const response = await fetch(`/api/fooditems/${id}`);
+        // const data = await response.json();
+
+        const query = `
+query ($id: Guid!) {
+  foodItem(id: $id) {
+    id
+    name
+    brand
+    usableAsRecipeIngredient
+    usableInFoodJournal
+    notes
+    recipeBatchDate
+    recipeNutritionTableJson
+    generatedFrom {
+      id
+      name
+    }
+    foodItemNutrients {
+      quantity
+      percent
+      displayOrder
+      nutrient {
+        id
+        currentDailyValue
+        name
+      }
+      unit {
+        id
+        type
+      }
+    }
+    servingSizes {
+      quantity
+      displayOrder
+      unit {
+        id
+        type
+      }
+    }
+  }
+}`;
+        const body = JSON.stringify({query, variables: { "id": id }});
+
+        const response = await fetch('/graphql/query', {method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body});
+
+        const { data } = await response.json();
+
+        const foodItem = {
+            id: data.foodItem.id
+          , name: data.foodItem.name
+          , brand: data.foodItem.brand
+          , usableAsRecipeIngredient: data.foodItem.usableAsRecipeIngredient
+          , usableInFoodJournal: data.foodItem.usableInFoodJournal
+          , notes: data.foodItem.notes
+          , recipeBatchDate: data.foodItem.recipeBatchDate
+          , generatedFromId: data.foodItem.generatedFrom?.id ?? null
+          , generatedFromName: data.foodItem.generatedFrom?.name ?? null
+          , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
+                isPercentUnit: parseFloat(fin.percent) ? true : false
+              , quantity: roundToTwoPlaces(fin.quantity) || null
+              , percent: roundToTwoPlaces(fin.percent) || null
+              , nutrientId: fin.nutrient.id
+              , "-nutrientName": fin.nutrient.name
+              , unitId: parseFloat(fin.percent) ? null : fin.unit.id
+              , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue) // TODO: maybe make all these "add-on" things "-property" by convention and then don't send them to the backend.
+            }))
+          , servingSizes: (data.foodItem?.servingSizes?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(s => ({
+                unitId: s.unit.id
+              , unitType: s.unit.type
+              , quantity: roundToTwoPlaces(s.quantity)
+            }))
+        };
+
+        setFoodItem(foodItem);
+
+        if (data.foodItem.recipeNutritionTableJson) {
+            try {
+                const newNutritionTable = JSON.parse(data.foodItem.recipeNutritionTableJson);
+                setNutritionTable(newNutritionTable);
+            }
+            catch(err) {
+                console.log(err);
+            }
+        }
+    };
+
     const generateNutrientUnitOptions = (unitId, showPercent) => {
         const possibleUnits = Object.values(unitDictionary).filter(u => u.type == unitDictionary[unitId].type)
     
@@ -69,12 +155,20 @@ const FoodItemForm = () => {
         return possibleOptions;
     };
 
+    //#region Validation
+
     const validateAndSetFoodItem = (foodItem) => {
         const newFoodItem = { ... foodItem, "-show-errors": true };
         validateFoodItem(newFoodItem);
         
         setFoodItem(newFoodItem);
         return newFoodItem["-has-errors"];
+    }
+
+    const validateFoodItemAndMarkAsChanged = (newFoodItem) => {
+        setHasUnsavedChanges(true);
+
+        return validateFoodItem(newFoodItem);
     }
 
     const validateFoodItem = (newFoodItem) => {
@@ -223,198 +317,30 @@ const FoodItemForm = () => {
         return hasErrors;
     }
 
-    const fetchNutrients = async() => {
-        const query = `
-{
-  nutrients
-  {
-    id
-    name
-    defaultUnit {
-      id
-      abbreviationCsv
-      name
-      type
-      canBeFoodQuantity
-    }
-    currentDailyValue
-    group
-    displayOrder
-  }
-}`
-        try {
-            const data = await fetchGraphQl(query)
+    //#endregion Validation
 
-            const nutrientArray = data.nutrients.toSorted(displayOrderCompareFn);
-            const nutrientGroupDictionary = Object.groupBy(nutrientArray, n => n.group);
-            const groupedOptions = Object.keys(nutrientGroupDictionary).map(k => ({
-                label: k
-              , displayOrder: Math.min.apply(null, nutrientGroupDictionary[k].map(nutrient => nutrient.displayOrder))
-              , options: nutrientGroupDictionary[k].toSorted((n1, n2) => n1.displayOrder - n2.displayOrder).map(nutrient => ({
-                    value: nutrient.id
-                  , label: nutrient.name
-                  , nutrient: nutrient
-                }))
-            })).toSorted((n1, n2) => n1.displayOrder - n2.displayOrder);
-
-            setNutrientOptions(groupedOptions);
-        }
-        catch (error) {
-            console.error(error)
-            setNutrientOptions([]);
-        }
-    }
-
-    const fetchUnits = async () => {
-        let url = `/api/lookup/units`
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                setModalState(
-                    {
-                        ...defaultModalState
-                      , showError: true
-                      , errorHttpStatus: response.status
-                      , errorMessage: (await response.text())?.toString()?.trim() ?? response.statusText
-                    }
-                );
-            }
-
-            const units = await response.json();
-            const newUnitDct = units.reduce((result, unit) => { result[unit.id] = unit; return result; }, {});
-            setUnitDictionary(newUnitDct);
-
-            const servingSizeUnitDictionary = Object.groupBy(units.filter(u => u.canBeFoodQuantity), u => u.type);
-            const unitTypes = Object.keys(servingSizeUnitDictionary).toSorted((t1, t2) => t1.localeCompare(t2))
-            const groupedOptions =
-                unitTypes
-                    .map(unitType => ({
-                        label: unitType
-                      , options: servingSizeUnitDictionary[unitType].toSorted((u1, u2) => u1.name.localeCompare(u2.name)).map(unit => ({
-                            value: unit.id
-                          , label: unit.name
-                        }))
-                    }));
-
-            setUnitOptions(groupedOptions);
-        }
-        catch (err) {
-            setModalState(
-                {
-                    ...defaultModalState
-                  , showError: true
-                  , errorMessage: await err.toString()
-                }
-            );
-        }
-    }
-
-    const fetchFoodItem = async (id) => {
-        // const response = await fetch(`/api/fooditems/${id}`);
-        // const data = await response.json();
-
-        const query = `
-query ($id: Guid!) {
-  foodItem(id: $id) {
-    id
-    name
-    brand
-    usableAsRecipeIngredient
-    usableInFoodJournal
-    notes
-    recipeBatchDate
-    recipeNutritionTableJson
-    generatedFrom {
-      id
-      name
-    }
-    foodItemNutrients {
-      quantity
-      percent
-      displayOrder
-      nutrient {
-        id
-        currentDailyValue
-        name
-      }
-      unit {
-        id
-        type
-      }
-    }
-    servingSizes {
-      quantity
-      displayOrder
-      unit {
-        id
-        type
-      }
-    }
-  }
-}`;
-        const body = JSON.stringify({query, variables: { "id": id }});
-
-        const response = await fetch('/graphql/query', {method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body});
-
-        const { data } = await response.json();
-
-        const foodItem = {
-            id: data.foodItem.id
-          , name: data.foodItem.name
-          , brand: data.foodItem.brand
-          , usableAsRecipeIngredient: data.foodItem.usableAsRecipeIngredient
-          , usableInFoodJournal: data.foodItem.usableInFoodJournal
-          , notes: data.foodItem.notes
-          , recipeBatchDate: data.foodItem.recipeBatchDate
-          , generatedFromId: data.foodItem.generatedFrom?.id ?? null
-          , generatedFromName: data.foodItem.generatedFrom?.name ?? null
-          , nutrients: (data?.foodItem?.foodItemNutrients?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(fin => ({
-                isPercentUnit: parseFloat(fin.percent) ? true : false
-              , quantity: roundToTwoPlaces(fin.quantity) || null
-              , percent: roundToTwoPlaces(fin.percent) || null
-              , nutrientId: fin.nutrient.id
-              , "-nutrientName": fin.nutrient.name
-              , unitId: parseFloat(fin.percent) ? null : fin.unit.id
-              , unitOptions: generateNutrientUnitOptions(fin.unit.id, fin.nutrient.currentDailyValue) // TODO: maybe make all these "add-on" things "-property" by convention and then don't send them to the backend.
-            }))
-          , servingSizes: (data.foodItem?.servingSizes?.toSorted((n1, n2) => n2.displayOrder - n2.displayOrder) ?? []).map(s => ({
-                unitId: s.unit.id
-              , unitType: s.unit.type
-              , quantity: roundToTwoPlaces(s.quantity)
-            }))
-        };
-
-        setFoodItem(foodItem);
-
-        if (data.foodItem.recipeNutritionTableJson) {
-            try {
-                const newNutritionTable = JSON.parse(data.foodItem.recipeNutritionTableJson);
-                setNutritionTable(newNutritionTable);
-            }
-            catch(err) {
-                console.log(err);
-            }
-        }
-    };
+    //#region Handlers and Related Utilities
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         const newFoodItem = { ...foodItem, [name]: value };
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem({ ...newFoodItem, [name]: value });
     };
 
     const handleUsableAsRecipeIngredient = (selectedOption) => {
         const newFoodItem = { ...foodItem, usableAsRecipeIngredient: selectedOption.value };
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem({ ...newFoodItem });
     }
 
     const handleUsableInFoodJournalChange = (selectedOption) => {
         const newFoodItem = { ...foodItem, usableInFoodJournal: selectedOption.value };
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem({ ...newFoodItem });
     }
+
+    //#region Serving Sizes
 
     const checkEmptiesAndAddServingSize = (newFoodItem) => {
         const allHaveValues = newFoodItem.servingSizes.reduce((acc, cur) => acc && (cur.unitId && parseFloat(cur.quantity)) ? true : false, true);
@@ -430,7 +356,7 @@ query ($id: Guid!) {
         servingSizes[index] = { ...servingSizes[index], [name]: value };
         const newFoodItem = checkEmptiesAndAddServingSize({ ...foodItem, servingSizes: servingSizes});
 
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem(newFoodItem)
     };
 
@@ -438,7 +364,7 @@ query ($id: Guid!) {
         const newServingSizes = [ ...foodItem.servingSizes];
         newServingSizes[index].unitId = selectedOption?.value;
         const newFoodItem = checkEmptiesAndAddServingSize({ ...foodItem, servingSizes: newServingSizes });
-        validateFoodItem(newFoodItem);        
+        validateFoodItemAndMarkAsChanged(newFoodItem);        
         setFoodItem(newFoodItem);
     };
 
@@ -448,7 +374,9 @@ query ($id: Guid!) {
 
     const handleRemoveServingSizeButton = (index) => {
         const servingSizes = foodItem.servingSizes.filter((_, i) => i !== index);
-        setFoodItem({ ...foodItem, servingSizes: servingSizes });
+        const newFoodItem = { ...foodItem, servingSizes: servingSizes };
+        validateFoodItemAndMarkAsChanged(newFoodItem);
+        setFoodItem(newFoodItem);
     }
 
     const handleMoveServingSizeUpButton = (index) => {
@@ -456,7 +384,9 @@ query ($id: Guid!) {
             const servingSizesBefore = foodItem.servingSizes.slice(0, index - 1);
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 1);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index], foodItem.servingSizes[index - 1], ...servingSizesAfter];
-            setFoodItem({ ...foodItem, servingSizes: servingSizes});
+            const newFoodItem = { ...foodItem, servingSizes: servingSizes };
+            validateFoodItemAndMarkAsChanged(newFoodItem);
+            setFoodItem(newFoodItem);
         }
     }
 
@@ -465,13 +395,19 @@ query ($id: Guid!) {
             const servingSizesBefore = foodItem.servingSizes.slice(0, index);
             const servingSizesAfter  = foodItem.servingSizes.slice(index + 2);
             const servingSizes = [...servingSizesBefore, foodItem.servingSizes[index + 1], foodItem.servingSizes[index], ...servingSizesAfter];
-            setFoodItem({ ...foodItem, servingSizes: servingSizes});
+            const newFoodItem = { ...foodItem, servingSizes: servingSizes };
+            validateFoodItemAndMarkAsChanged(newFoodItem);
+            setFoodItem(newFoodItem);
         }
     }
 
+    //#endregion Serving Sizes
+
+    //#region Nutrients
+
     const checkEmptiesAndAddNutrient = (newFoodItem) => {
         const allHaveValues = newFoodItem.nutrients.reduce((acc, cur) => acc && (cur.nutrientId && cur.unitId && (parseFloat(cur.quantity) || parseFloat(cur.percent))) ? true : false, true);
-        if (allHaveValues) {
+        if (allHaveValues && (newFoodItem.nutrients.length < ungroupOptions(nutrientOptions).length)) {
             newFoodItem = {...newFoodItem, nutrients: [... newFoodItem.nutrients, {...emptyNutrient} ]}
         }
         return newFoodItem;
@@ -487,7 +423,7 @@ query ($id: Guid!) {
             nutrients[index] = { ...nutrients[index], quantity: value, percent: null };
         }
         const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: nutrients });
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem(newFoodItem);
     };
 
@@ -503,7 +439,7 @@ query ($id: Guid!) {
             newNutrients[index].unitOptions = generateNutrientUnitOptions(selectedNutrient.defaultUnit.id, selectedNutrient.currentDailyValue);
 
             const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: newNutrients });
-            validateFoodItem(newFoodItem);
+            validateFoodItemAndMarkAsChanged(newFoodItem);
             setFoodItem(newFoodItem);
         }
         else {
@@ -511,7 +447,7 @@ query ($id: Guid!) {
             newNutrients[index].nutrientId = null;
             newNutrients[index].unitId = null;
             const newFoodItem = { ...foodItem, nutrients: newNutrients };
-            validateFoodItem(newFoodItem);
+            validateFoodItemAndMarkAsChanged(newFoodItem);
             setFoodItem(newFoodItem);
         }
     };
@@ -531,7 +467,7 @@ query ($id: Guid!) {
         }
 
         const newFoodItem = checkEmptiesAndAddNutrient({ ...foodItem, nutrients: newNutrients });
-        validateFoodItem(newFoodItem);
+        validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem(newFoodItem);
     };
 
@@ -541,7 +477,12 @@ query ($id: Guid!) {
 
     const handleRemoveNutrientButton = (index) => {
         const nutrients = foodItem.nutrients.filter((_, i) => i !== index);
-        setFoodItem({ ...foodItem, nutrients: nutrients });
+        const newFoodItem = { ...foodItem, nutrients: nutrients };
+
+        // TODO: combine these
+
+        validateFoodItemAndMarkAsChanged(newFoodItem);
+        setFoodItem(newFoodItem);
     };
 
     const handleMoveNutrientUpButton = (index) => {
@@ -549,7 +490,9 @@ query ($id: Guid!) {
             const nutrientsBefore = foodItem.nutrients.slice(0, index - 1);
             const nutrientsAfter  = foodItem.nutrients.slice(index + 1);
             const newNutrients = [...nutrientsBefore, foodItem.nutrients[index], foodItem.nutrients[index - 1], ...nutrientsAfter];
-            setFoodItem({ ...foodItem, nutrients: newNutrients});
+            const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            validateFoodItemAndMarkAsChanged(newFoodItem);
+            setFoodItem(newFoodItem);
         }
     }
 
@@ -557,18 +500,14 @@ query ($id: Guid!) {
         if (index < foodItem.nutrients.length - 1) {
             const nutrientsBefore = foodItem.nutrients.slice(0, index);
             const nutrientsAfter  = foodItem.nutrients.slice(index + 2);
-            const nutrients = [...nutrientsBefore, foodItem.nutrients[index + 1], foodItem.nutrients[index], ...nutrientsAfter];
-            setFoodItem({ ...foodItem, nutrients: nutrients});
+            const newNutrients = [...nutrientsBefore, foodItem.nutrients[index + 1], foodItem.nutrients[index], ...nutrientsAfter];
+            const newFoodItem = { ...foodItem, nutrients: newNutrients };
+            validateFoodItemAndMarkAsChanged(newFoodItem);
+            setFoodItem(newFoodItem);
         }
     }
 
-    const handleDuplicateButton = () => {
-        // const newRecipe = { ... recipe, "-show-errors": false };
-        // setRecipe(newRecipe);
-        // setHasUnsavedChanges(true);
-        // setModalState({...modalState, showDuplicated: true});
-        // navigate(`/RecipeForm`);
-    }
+    //#endregion Nutrients
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -647,6 +586,16 @@ query ($id: Guid!) {
             }
         }
     };
+
+    const handleDuplicateButton = () => {
+        const newFoodItem = { ... foodItem, "-show-errors": false };
+        setFoodItem(newFoodItem);
+        setHasUnsavedChanges(true);
+        setModalState({...modalState, showDuplicated: true});
+        navigate(`/FoodItemForm`);
+    }
+
+    //#endregion Handlers and Related Utilities
 
     return ready && (
         <form autoComplete="off" onSubmit={handleSubmit}>
@@ -957,11 +906,13 @@ query ($id: Guid!) {
                         </div>
                     </div>
                     <h5>Actions</h5>
-                    <div className="row mb-3">
-                        <div className="col-auto align-self-end">
+                    {hasUnsavedChanges && (<div className='fst-italic mb-2'>You have unsaved changes. Please save to perform actions other than saving or cancelling.</div>)}
+                    <div className="mb-3 btn-toolbar d-flex justify-content-between" role="toolbar" aria-label="Actions">
+                        <div className="btn-group" role="group">
                             <button type="submit" className="btn btn-primary">Save</button>
+                            <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleDuplicateButton}>Duplicate</button>
                         </div>
-                        <div className="col-auto align-self-end">
+                        <div className="btn-group" role="group">
                             <button type="button" className="btn btn-secondary" onClick={() => navigate(-1) }>Cancel</button>
                         </div>
                     </div>

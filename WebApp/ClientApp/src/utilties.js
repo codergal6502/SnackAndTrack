@@ -81,6 +81,65 @@ const useUnits = () => {
     return [unitDictionary, unitOptions];
 };
 
+const fetchNutrients = async() => {
+    const query = `
+{
+  nutrients
+  {
+    id
+    name
+    defaultUnit {
+      id
+      abbreviationCsv
+      name
+      type
+      canBeFoodQuantity
+    }
+    currentDailyValue
+    group
+    displayOrder
+  }
+}`
+    try {
+        const data = await fetchGraphQl(query)
+
+        const nutrientArray = data.nutrients.toSorted(displayOrderCompareFn);
+        const nutrientGroupDictionary = Object.groupBy(nutrientArray, n => n.group);
+        const groupedOptions = Object.keys(nutrientGroupDictionary).map(k => ({
+            label: k
+            , displayOrder: Math.min.apply(null, nutrientGroupDictionary[k].map(nutrient => nutrient.displayOrder))
+            , options: nutrientGroupDictionary[k].toSorted((n1, n2) => n1.displayOrder - n2.displayOrder).map(nutrient => ({
+                value: nutrient.id
+                , label: nutrient.name
+                , nutrient: nutrient
+            }))
+        })).toSorted((n1, n2) => n1.displayOrder - n2.displayOrder);
+
+        return { nutrientDictionary: nutrientGroupDictionary, nutrientOptions: groupedOptions };
+    }
+    catch (error) {
+        console.error(error)
+        return { nutrientDictionary: [], nutrientOptions: [] };
+    }
+}
+
+const useNutrients = () => {
+    const [nutrientDictionary, setNutrientDictionary] = useState();
+    const [nutrientOptions, setNutrientOptions] = useState();
+
+    useEffect(() => {
+        const loadNutrients = async () => {
+            const { nutrientDictionary, nutrientOptions } = await fetchNutrients();
+            setNutrientDictionary(nutrientDictionary);
+            setNutrientOptions(nutrientOptions);
+        };
+
+        loadNutrients();
+    }, []);
+
+    return [nutrientDictionary, nutrientOptions];
+};
+
 const yesNoOptions = [{ label: "Yes", value: true }, { label: "No", value: false }];
 
 const copyWithoutNullValues = (obj) => Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== null)); // https://stackoverflow.com/a/38340730, modified with !== rather than !=
@@ -111,4 +170,4 @@ const roundToTwoPlaces = (possibleFloat) => {
     }
 }
 
-export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits, yesNoOptions, copyWithoutNullValues, objectFromSearchParams, roundToTwoPlaces};
+export { fetchGraphQl, displayOrderCompareFn, ungroupOptions, uniqueFilterFn, useUnits, useNutrients, yesNoOptions, copyWithoutNullValues, objectFromSearchParams, roundToTwoPlaces};

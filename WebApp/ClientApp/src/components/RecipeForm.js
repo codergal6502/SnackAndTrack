@@ -1,27 +1,36 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { fetchGraphQl, displayOrderCompareFn, useUnits, ungroupOptions, uniqueFilterFn } from '../utilties';
+import { useParams, useNavigate } from 'react-router-dom';
+import { fetchGraphQl, displayOrderCompareFn, useUnits, ungroupOptions } from '../utilties';
 
 import Select from 'react-select';
 import Modal from 'react-bootstrap/Modal';
 
+// Options
 const emptyAmountMade = { quantityUnitId: "", quantity: 0, "-unitOptions": [ ] };
+
+// Default or empty state bits
 const emptyIngredient = { foodItemId: "", quantityUnitId: "", quantity: 0, "-foodItemOptions": [ ], "-unitOptions": [ ] };
-const amountMadeIsEmpty = am => "" == ((am.quantityUnitId || "").toString() + (am.quantity || "").toString()).trim();
-const ingredientIsEmpty = i => "" == ((i.foodItemId || "").toString() + (i.quantityUnitId || "").toString() + (i.quantity || "").toString()).trim();
 const defaultModalState = { showSuccess: false, showDuplicated: false, showError: false, errorHttpStatus: null, errorMessage: null };
 
+// Utilities
+const amountMadeIsEmpty = am => "" == ((am.quantityUnitId || "").toString() + (am.quantity || "").toString()).trim();
+const ingredientIsEmpty = i => "" == ((i.foodItemId || "").toString() + (i.quantityUnitId || "").toString() + (i.quantity || "").toString()).trim();
+
 const RecipeForm = () => {
+    // Form and UI State Objects
     const [recipe, setRecipe] = useState({ name: '', source: '', notes: '', ingredients: [ ], amountsMade: [ ] });
-    const [unitDictionary, unitOptions] = useUnits();
-    const [ready, setReady] = useState();
     const [customLabelSelectMenuIsOpen, setCustomLabelSelectMenuIsOpen] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
     const [modalState, setModalState] = useState(defaultModalState);
+    const [ready, setReady] = useState();
+
+    // Lookups and Options
+    const [unitDictionary, unitOptions] = useUnits();
+
     const { id } = useParams();
     const navigate = useNavigate();
 
+    // Loading
     useEffect(() => { document.title = "Snack and Track: Edit Recipe" }, [])
 
     useEffect(() => {
@@ -107,6 +116,163 @@ query ($id: Guid!) {
             }))
         };
 
+        setRecipe(newRecipe);
+    };
+
+    //#region Validation
+    
+    const validateAndSetRecipe = (recipe) => {
+        const newRecipe = { ... recipe, "-show-errors": true };
+        validateRecipeAndMarkAsChanged(newRecipe);
+        
+        setRecipe(newRecipe);
+        return newRecipe["-has-errors"];
+    }
+
+    const validateRecipeAndMarkAsChanged = (newRecipe) => {
+        setHasUnsavedChanges(true);
+
+        return validateRecipe(newRecipe);
+    }
+
+    const validateRecipe = (newRecipe) => {
+        let hasErrors = false;
+
+        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
+        hasErrors = validateRecipeName(newRecipe) || hasErrors;
+        hasErrors = validateRecipeAmountsMade(newRecipe) || hasErrors;
+        hasErrors = validateIngredients(newRecipe) || hasErrors;
+
+        newRecipe["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateRecipeName = (newRecipe) => {
+        let hasErrors = false;
+
+        if (! (newRecipe.name || "").trim()) {
+            newRecipe["-error-name"] = "Recipe name is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newRecipe["-error-name"];
+        }
+
+        newRecipe["-has-errors"] = hasErrors;
+
+        return hasErrors;
+    };
+
+    const validateRecipeAmountsMade = (newRecipe) => {
+        let hasErrors = false;
+        const newAmountsMade = [... newRecipe.amountsMade];
+
+        for (const newAmountMade of newAmountsMade) {
+            hasErrors = validateAmountMade(newAmountMade) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateAmountMade = (newAmountMade) => {
+        if (amountMadeIsEmpty(newAmountMade)) {
+            delete newAmountMade["-error-unitId"];
+            delete newAmountMade["-error-quantity"];
+            return false;
+        }
+
+        let hasErrors = false;
+
+        if (! (newAmountMade.quantityUnitId || "").trim()) {
+            newAmountMade["-error-unitId"] = "Amount made unitis required.";
+            hasErrors = true;
+        }
+        else {
+            delete newAmountMade["-error-unitId"];
+        }
+
+        var quantityFloat = parseFloat(newAmountMade.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            newAmountMade["-error-quantity"] = "Amount made quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            newAmountMade["-error-quantity"] = "Amount made quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete newAmountMade["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
+
+    const validateIngredients = (newRecipe) => {
+        let hasErrors = false;
+        const newIngredients = [... newRecipe.ingredients];
+
+        for (const ingredient of newIngredients) {
+            hasErrors = validateIngredient(ingredient) || hasErrors;
+        }
+
+        return hasErrors;
+    }
+
+    const validateIngredient = (newIngredient) => {
+        if (ingredientIsEmpty(newIngredient)) {
+            delete newIngredient["-error-foodItemId"];
+            delete newIngredient["-error-unitId"];
+            delete newIngredient["-error-quantity"];
+            return false;
+        }
+
+        let hasErrors = false;
+
+        if (! (newIngredient.foodItemId || "").trim()) {
+            newIngredient["-error-foodItemId"] = "Ingredient food item is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-foodItemId"];
+        }
+
+        if (! (newIngredient.quantityUnitId || "").trim()) {
+            newIngredient["-error-unitId"] = "Ingredient unit is required.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-unitId"];
+        }
+
+        var quantityFloat = parseFloat(newIngredient.quantity);
+
+        if (isNaN(quantityFloat)) {
+            // Probably impossible.
+            newIngredient["-error-quantity"] = "Ingredient quantity must be a number.";
+            hasErrors = true;
+        }
+        else if (0 >= quantityFloat) {
+            newIngredient["-error-quantity"] = "Ingredient quantity must be positive.";
+            hasErrors = true;
+        }
+        else {
+            delete newIngredient["-error-quantity"];
+        }
+
+        return hasErrors;
+    };
+
+    //#endregion Validation
+
+    //#region Handlers and Related Utilities
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        const newRecipe = { ... recipe, [name]: value };
+        validateRecipeAndMarkAsChanged(newRecipe);
         setRecipe(newRecipe);
     };
 
@@ -342,13 +508,6 @@ query foodItems($query: String) {
 
     //#endregion
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        const newRecipe = { ... recipe, [name]: value };
-        validateRecipeAndMarkAsChanged(newRecipe);
-        setRecipe(newRecipe);
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         const hasErrors = validateAndSetRecipe(recipe);
@@ -439,149 +598,7 @@ query foodItems($query: String) {
         navigate(`/RecipeForm`);
     }
 
-    const validateAndSetRecipe = (recipe) => {
-        const newRecipe = { ... recipe, "-show-errors": true };
-        validateRecipeAndMarkAsChanged(newRecipe);
-        
-        setRecipe(newRecipe);
-        return newRecipe["-has-errors"];
-    }
-
-    const validateRecipeAndMarkAsChanged = (newRecipe) => {
-        setHasUnsavedChanges(true);
-
-        return validateRecipe(newRecipe);
-    }
-
-    const validateRecipe = (newRecipe) => {
-        let hasErrors = false;
-
-        // the elegant, graceful-looking ||= won't work because of short-circuit evaluation.
-        hasErrors = validateRecipeName(newRecipe) || hasErrors;
-        hasErrors = validateRecipeAmountsMade(newRecipe) || hasErrors;
-        hasErrors = validateIngredients(newRecipe) || hasErrors;
-
-        newRecipe["-has-errors"] = hasErrors;
-
-        return hasErrors;
-    };
-
-    const validateRecipeName = (newRecipe) => {
-        let hasErrors = false;
-
-        if (! (newRecipe.name || "").trim()) {
-            newRecipe["-error-name"] = "Recipe name is required.";
-            hasErrors = true;
-        }
-        else {
-            delete newRecipe["-error-name"];
-        }
-
-        newRecipe["-has-errors"] = hasErrors;
-
-        return hasErrors;
-    };
-
-    const validateRecipeAmountsMade = (newRecipe) => {
-        let hasErrors = false;
-        const newAmountsMade = [... newRecipe.amountsMade];
-
-        for (const newAmountMade of newAmountsMade) {
-            hasErrors = validateAmountMade(newAmountMade) || hasErrors;
-        }
-
-        return hasErrors;
-    }
-
-    const validateAmountMade = (newAmountMade) => {
-        if (amountMadeIsEmpty(newAmountMade)) {
-            delete newAmountMade["-error-unitId"];
-            delete newAmountMade["-error-quantity"];
-            return false;
-        }
-
-        let hasErrors = false;
-
-        if (! (newAmountMade.quantityUnitId || "").trim()) {
-            newAmountMade["-error-unitId"] = "Amount made unitis required.";
-            hasErrors = true;
-        }
-        else {
-            delete newAmountMade["-error-unitId"];
-        }
-
-        var quantityFloat = parseFloat(newAmountMade.quantity);
-
-        if (isNaN(quantityFloat)) {
-            // Probably impossible.
-            newAmountMade["-error-quantity"] = "Amount made quantity must be a number.";
-            hasErrors = true;
-        }
-        else if (0 >= quantityFloat) {
-            newAmountMade["-error-quantity"] = "Amount made quantity must be positive.";
-            hasErrors = true;
-        }
-        else {
-            delete newAmountMade["-error-quantity"];
-        }
-
-        return hasErrors;
-    };
-
-    const validateIngredients = (newRecipe) => {
-        let hasErrors = false;
-        const newIngredients = [... newRecipe.ingredients];
-
-        for (const ingredient of newIngredients) {
-            hasErrors = validateIngredient(ingredient) || hasErrors;
-        }
-
-        return hasErrors;
-    }
-
-    const validateIngredient = (newIngredient) => {
-        if (ingredientIsEmpty(newIngredient)) {
-            delete newIngredient["-error-foodItemId"];
-            delete newIngredient["-error-unitId"];
-            delete newIngredient["-error-quantity"];
-            return false;
-        }
-
-        let hasErrors = false;
-
-        if (! (newIngredient.foodItemId || "").trim()) {
-            newIngredient["-error-foodItemId"] = "Ingredient food item is required.";
-            hasErrors = true;
-        }
-        else {
-            delete newIngredient["-error-foodItemId"];
-        }
-
-        if (! (newIngredient.quantityUnitId || "").trim()) {
-            newIngredient["-error-unitId"] = "Ingredient unit is required.";
-            hasErrors = true;
-        }
-        else {
-            delete newIngredient["-error-unitId"];
-        }
-
-        var quantityFloat = parseFloat(newIngredient.quantity);
-
-        if (isNaN(quantityFloat)) {
-            // Probably impossible.
-            newIngredient["-error-quantity"] = "Ingredient quantity must be a number.";
-            hasErrors = true;
-        }
-        else if (0 >= quantityFloat) {
-            newIngredient["-error-quantity"] = "Ingredient quantity must be positive.";
-            hasErrors = true;
-        }
-        else {
-            delete newIngredient["-error-quantity"];
-        }
-
-        return hasErrors;
-    };
+    //#endregion Handlers and Related Utilities
 
     return (
         <form onSubmit={handleSubmit} autoComplete="Off">
@@ -761,13 +778,13 @@ query foodItems($query: String) {
             <h4>Actions</h4>
             {hasUnsavedChanges && (<div className='fst-italic mb-2'>You have unsaved changes. Please save to perform actions other than saving or cancelling.</div>)}
             <div className="mb-3 btn-toolbar d-flex justify-content-between" role="toolbar" aria-label="Actions">
-                <div className="btn-group" role="group" aria-label="First group">
+                <div className="btn-group" role="group">
                     <button type="submit" className="btn btn-primary">Save Recipe</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleDuplicateButton}>Duplicate</button>
                 </div>
-                <div className="btn-group" role="group" aria-label="Second group">
-                    <button type="button" className="btn btn-dark" onClick={() => navigate(-1)}>Cancel</button>
+                <div className="btn-group" role="group">
+                    <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
                 </div>
             </div>
             
