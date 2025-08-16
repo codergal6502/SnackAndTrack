@@ -3,7 +3,7 @@ namespace SnackAndTrack.WebApp.Models {
         public required Guid RecipeId { get; set; }
         public required Boolean UsableInFoodJournal { get; set; }
         public required Boolean MarkOthersNotUsableInFoodJournal { get; set; }
-        public required DateOnly BatchDate { get; set; }
+        public required DateOnly? BatchDate { get; set; }
         
         public class ServingSizeConversion
         {

@@ -289,8 +289,13 @@ query GetFoodJournalEntries($date: DateOnly) {
 
     const handleFoodItemTimeChange = (time) => {
         const dt = DateTime.fromISO(time);
-        console.log(dt);
         const newFoodItemPopupState = {... foodItemPopupState, time: time, "-dt-object": dt };
+        populateErrorsInFoodItemPopup(newFoodItemPopupState);
+        setFoodItemPopupState(newFoodItemPopupState);
+    }
+
+    const handletimeClearButton = () => {
+        const newFoodItemPopupState = {... foodItemPopupState, time: null, "-dt-object": null };
         populateErrorsInFoodItemPopup(newFoodItemPopupState);
         setFoodItemPopupState(newFoodItemPopupState);
     }
@@ -399,7 +404,8 @@ query GetFoodJournalEntries($date: DateOnly) {
                 foodItem: foodItemPopupState.selectedFoodItemOption.foodItem
               , unit: foodItemPopupState.selectedUnitOption.unit
               , quantity: foodItemPopupState.quantity
-              , time: DateTime.fromISO(foodItemPopupState.time)
+              , time: foodItemPopupState.time
+              , "-dt-object": DateTime.fromISO(foodItemPopupState.time)
               , date: journalState.date
               , nutrients: { }
             }
@@ -409,7 +415,7 @@ query GetFoodJournalEntries($date: DateOnly) {
               , foodItemId: newJournalEntry.foodItem.id
               , unitId: newJournalEntry.unit.id
               , quantity: newJournalEntry.quantity
-              , time: newJournalEntry.time.toLocaleString(DateTime.TIME_24_SIMPLE)
+              , time: newJournalEntry.time
               , date: newJournalEntry.date
             };
 
@@ -526,9 +532,8 @@ query GetFoodJournalEntries($date: DateOnly) {
         return hasErrors;
     }
 
-    const generateJournalState = (journalState, date, goalNutrientIds) => {
-        if (isNaN(date)) { date = new Date().toISOString().split('T')[0]; }
-        else { date = new Date(date).toISOString().split('T')[0]; }
+    const generateJournalState = (journalState, /** @type {DateTime} */date, goalNutrientIds) => {
+        if (! date?.isValid) { date = DateTime.now() }
 
         goalNutrientIds = goalNutrientIds ?? [ ];
         let nutrientTargets = [ ];
@@ -536,7 +541,10 @@ query GetFoodJournalEntries($date: DateOnly) {
         for (const ngsId of goalNutrientIds) {
             let nutritionGoal = nutritionGoalSetDictionary[ngsId];
 
-            if (new Date(nutritionGoal.endDate) < new Date(date) || new Date(date) < new Date(nutritionGoal.startDate)) {
+            const endDate = DateTime.fromISO(nutritionGoal.endDate);
+            const startDate = DateTime.fromISO(nutritionGoal.startDate);
+
+            if (endDate < date || date < startDate) {
                 continue;
             }
 
@@ -562,13 +570,13 @@ query GetFoodJournalEntries($date: DateOnly) {
             }
         };
 
-        journalState = {... journalState, date: date, nutrientTargets: nutrientTargets, goalNutrientIds: goalNutrientIds };
+        journalState = {... journalState, date: date.toISODate(), nutrientTargets: nutrientTargets, goalNutrientIds: goalNutrientIds };
 
         return journalState;
     }
 
     const generateJournalStateUsingSearchParams = (journalState, searchParamsJsObject) => {
-        return generateJournalState(journalState, new Date(searchParamsJsObject.date), searchParamsJsObject.nutritionGoals);
+        return generateJournalState(journalState, DateTime.fromISO(searchParamsJsObject.date), searchParamsJsObject.nutritionGoals);
     }
 
     const convertSearchParamsToJsObjct = (/** @type {URLSearchParams} */ searchParams) => {
@@ -693,7 +701,7 @@ query GetFoodJournalEntries($date: DateOnly) {
                     </tr>
                 </thead>
                 <tbody>
-                    {journalState.journalEntries.map((je, entryIndex) => 
+                    {journalState.journalEntries.toSorted((e1, e2) => e1["-dt-object"] < e2["-dt-object"]).map((je, entryIndex) => 
                         <tr key={entryIndex}>
                             <td>
                                 <div className="container" style={{width: "100%"}}>
@@ -757,14 +765,22 @@ query GetFoodJournalEntries($date: DateOnly) {
                         />
                         {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-quantity"]}</div>))}
                         <label htmlFor="time" className='form-label'>Time</label>
-                        <input
-                            id="time"
-                            type="time"
-                            onChange={(e) => { handleFoodItemTimeChange(e.target.value) }}
-                            value={foodItemPopupState.time ?? ""}
-                            className={`form-control ${(foodItemPopupState["-show-errors"] && foodItemPopupState["-error-time"]) ? "is-invalid" : ""}`}
-                            placeholder={foodItemPopupState?.selectedUnitOption?.unit?.name}
-                        />
+
+
+                        <div className="input-group">
+                            <input
+                                id="time"
+                                type="time"
+                                onChange={(e) => { handleFoodItemTimeChange(e.target.value) }}
+                                value={foodItemPopupState.time ?? ""}
+                                className={`form-control ${(foodItemPopupState["-show-errors"] && foodItemPopupState["-error-time"]) ? "is-invalid" : ""}`}
+                                placeholder={foodItemPopupState?.selectedUnitOption?.unit?.name}
+                            />
+                            <button className="btn btn-outline-dark" style={{"border": "1px solid #ced4da"}} type="button" id="button-addon2" onClick={handletimeClearButton}><i className="bi bi-x-circle"></i></button>
+                        </div>
+
+
+
                         {(foodItemPopupState["-show-errors"] && (<div className='error-message'>{foodItemPopupState["-error-time"]}</div>))}
                     </div>
                 </Modal.Body>

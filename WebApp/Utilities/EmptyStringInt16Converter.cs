@@ -2,29 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SnackAndTrack.WebApp.Utilities {
-    // Based on https://stackoverflow.com/a/77411561.
-    public class EmptyStringInt16Converter : JsonConverter<Int16?> {
-        public override Int16? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            if (reader.TokenType == JsonTokenType.String) {
-                var readString = reader.GetString();
-                if (String.IsNullOrWhiteSpace(readString)) {
-                    return null;
-                }
-                else {
-                    return Int16.Parse(readString);
-                }
-            }
-            return reader.GetInt16();
+    public class EmptyStringInt16Converter : EmptyStringScalarConverter<Int16> {
+        protected override string ConvertToString(Int16 value, JsonSerializerOptions options) {
+            return value.ToString();
         }
 
-        public override void Write(Utf8JsonWriter writer, Int16? value, JsonSerializerOptions options) {
-            if (null == value) {
-                writer.WriteStringValue("");
-            }
-            else {
-                // See https://stackoverflow.com/a/115002.
-                writer.WriteStringValue(value.Value.ToString());
-            }
+        protected override bool TryParse(string input, out Int16 result)
+        {
+            return Int16.TryParse(input, out result);
         }
     }
 }
