@@ -15,7 +15,7 @@ const defaultModalState = { showError: false, errorHttpStatus: null, errorMessag
 const RecipeScale = () => {
     // Form and UI State Objects
     const [recipe, setRecipe] = useState({ name: '', source: '', ingredients: [], amountsMade: [] });
-    const [scaleSetup, setScaleSetup] = useState({ ingredientId: null, "-ingredientSelection": null, ingredientUnitId: null, ingredientQuantity: "" })
+    const [scaleSetup, setScaleSetup] = useState({ ingredientId: null, "-ingredientSelection": null, ingredientUnitId: null, ingredientQuantity: "", easyScale: 1 })
     const [scaledRecipe, setScaledRecipe] = useState(null);
     const [modalState, setModalState] = useState(defaultModalState);
     const [ready, setReady] = useState();
@@ -127,6 +127,26 @@ query ($id: Guid!) {
         setScaleSetup(newScaleSetup);
     };
 
+    const calculateAndSetScaledRecipe = (unitlessConversionRatio) => {
+        const newScaledRecipe = { ingredients: recipe.ingredients.map(ri => ({
+            ...ri
+          , quantity: unitlessConversionRatio * ri.quantity
+          , displayQuantity: unitlessConversionRatio * ri.quantity
+          , displayUnitId: ri.quantityUnitId
+          , "-recipeUnit": unitDictionary[ri.quantityUnitId]
+          , "-unitOptions": unitOptions.filter(grp => grp.label == unitDictionary[ri.quantityUnitId].type)[0].options
+        })) };
+        setScaledRecipe(newScaledRecipe);
+    }
+
+    const handleEasyScaleChange = (scale) => {
+        setScaleSetup({...scaleSetup, easyScale: scale});
+    }
+
+    const handleEasyScaleGoButton = () => {
+        calculateAndSetScaledRecipe(scaleSetup.easyScale);
+    }
+
     const handleIngredientChange = (selectedOption) => {
         const newScaleSetup = {...scaleSetup, ingredientId: selectedOption?.value, "-ingredientSelection": selectedOption, ingredientUnitId: selectedOption?.["-defaultUnit"] };
         setScaleSetup(newScaleSetup)
@@ -140,10 +160,6 @@ query ($id: Guid!) {
     const handleIngredientQuantityChange = (ingredientQuantity) => {
         const newScaleSetup = {...scaleSetup, ingredientQuantity: ingredientQuantity };
         setScaleSetup(newScaleSetup);
-    }
-
-    const doScaleRecipe = (unitlessConversionRatio) => {
-
     }
 
     const handleIngredientScaleGoButton = () => {
@@ -193,15 +209,7 @@ query ($id: Guid!) {
         
         const unitlessConversionRatio = sFiQ * urat / rFiQ;
 
-        const newScaledRecipe = { ingredients: recipe.ingredients.map(ri => ({
-            ...ri
-          , quantity: unitlessConversionRatio * ri.quantity
-          , displayQuantity: unitlessConversionRatio * ri.quantity
-          , displayUnitId: ri.quantityUnitId
-          , "-recipeUnit": unitDictionary[ri.quantityUnitId]
-          , "-unitOptions": unitOptions.filter(grp => grp.label == unitDictionary[ri.quantityUnitId].type)[0].options
-        })) };
-        setScaledRecipe(newScaledRecipe);
+        calculateAndSetScaledRecipe(unitlessConversionRatio);
     }
 
     const handleScaledRecipeUnitChange = (selectedOption, index) => {
@@ -329,7 +337,26 @@ query ($id: Guid!) {
                 </Accordion.Item>
                 <Accordion.Item eventKey='1'>
                     <Accordion.Header>Scale by Amount Made</Accordion.Header>
-                    <Accordion.Body></Accordion.Body>
+                    <Accordion.Body>
+                        <div className="m-3">Enter a number of times to scale the recipe, such as 2.0 or 0.5.</div>
+                        <div className="d-flex m-3">
+                            <div className="me-3">
+                                <label className='form-label' htmlFor="easyScale">Scale:</label>
+                                <input
+                                    id="easyScale"
+                                    name='easyScale'
+                                    type="number"
+                                    className='form-control'
+                                    onChange={e => handleEasyScaleChange(e.target.value)}
+                                    defaultValue={1}
+                                />
+                            </div>
+                            <div className="me-3">
+                                <label className="form-label">&nbsp;</label>
+                                <button type="button" className='btn btn-info form-control' onClick={handleEasyScaleGoButton}>Go</button>
+                            </div>
+                        </div>
+                    </Accordion.Body>
                 </Accordion.Item>
                 <Accordion.Item eventKey='2'>
                     <Accordion.Header>Scale by Ingredient Quantity</Accordion.Header>
