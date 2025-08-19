@@ -4,6 +4,7 @@ import FoodItemForm from "./components/FoodItemForm";
 import RecipeList from "./components/RecipeList";
 import RecipeForm from "./components/RecipeForm";
 import RecipeCompute from "./components/RecipeCompute";
+import RecipeScale from "./components/RecipeScale";
 import NutritionGoalSetList from "./components/NutritionGoalSetList";
 import NutritionGoalSetForm from "./components/NutritionGoalSetForm";
 import FoodJournal from "./components/FoodJournal";
@@ -44,6 +45,10 @@ const AppRoutes = [
   {
     path: '/recipecompute/:id',
     element: <RecipeCompute />
+  },
+  {
+    path: '/recipescale/:id',
+    element: <RecipeScale />
   },
   {
     path: '/nutritionGoalSetList',

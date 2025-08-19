@@ -1,0 +1,12 @@
+div.accordion-body {
+    padding: 0px;
+
+    & table.table-striped {
+        & th:first-child, & td:first-child {
+            border-left: 0;
+        }
+        & th:last-child, & td:last-child {
+            border-right: 0;
+        }
+    }
+}

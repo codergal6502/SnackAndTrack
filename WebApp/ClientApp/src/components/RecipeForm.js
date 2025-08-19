@@ -590,6 +590,10 @@ query foodItems($query: String) {
         navigate(`/RecipeCompute/${id}`);
     }
 
+    const handleScaleButton = () => {
+        navigate(`/RecipeScale/${id}`);
+    }
+
     const handleDuplicateButton = () => {
         const newRecipe = { ... recipe, "-show-errors": false };
         setRecipe(newRecipe);
@@ -781,7 +785,8 @@ query foodItems($query: String) {
                 <div className="btn-group" role="group">
                     <button type="submit" className="btn btn-primary">Save Recipe</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
-                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleDuplicateButton}>Duplicate</button>
+                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleScaleButton}>Scale Recipe</button>
+                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
                 </div>
                 <div className="btn-group" role="group">
                     <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>Cancel</button>

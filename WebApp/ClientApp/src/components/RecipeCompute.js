@@ -113,7 +113,7 @@ const RecipeCompute = () => {
 
     const handleMarkOthersNotUsableInFoodJournalChange = (selectedOptions) => {
         const selectedOption = Array.isArray(selectedOptions) ? selectedOptions[0] : selectedOptions;
-        const newFoodItemSetup = { ...foodItemSetup, usableInFoodJournal: selectedOption.value};
+        const newFoodItemSetup = { ...foodItemSetup, markOthersNotUsableInFoodJournal: selectedOption.value};
         validateFoodItemSetupAndMarkAsChanged(newFoodItemSetup);
         setFoodItemSetup(newFoodItemSetup);
     }

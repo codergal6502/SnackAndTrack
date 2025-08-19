@@ -478,9 +478,6 @@ query ($id: Guid!) {
     const handleRemoveNutrientButton = (index) => {
         const nutrients = foodItem.nutrients.filter((_, i) => i !== index);
         const newFoodItem = { ...foodItem, nutrients: nutrients };
-
-        // TODO: combine these
-
         validateFoodItemAndMarkAsChanged(newFoodItem);
         setFoodItem(newFoodItem);
     };
@@ -920,8 +917,8 @@ query ($id: Guid!) {
             )}
             
             <Modal show={modalState.showSuccess}>
-                <Modal.Header><h3>Recipe Saved</h3></Modal.Header>
-                <Modal.Body><div className='text-center'>Recipe Saved</div></Modal.Body>
+                <Modal.Header><h3>Food Item Saved</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Food Item Saved</div></Modal.Body>
                 <Modal.Footer>
                     <div className='text-center'>
                         <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
@@ -930,8 +927,8 @@ query ($id: Guid!) {
             </Modal>
             
             <Modal show={modalState.showDuplicated}>
-                <Modal.Header><h3>Recipe Duplicated</h3></Modal.Header>
-                <Modal.Body><div className='text-center'>Press <span className='fst-italic'>Save</span> to finish duplicating the recipe.</div></Modal.Body>
+                <Modal.Header><h3>Food Item Duplicated</h3></Modal.Header>
+                <Modal.Body><div className='text-center'>Press <span className='fst-italic'>Save</span> to finish duplicating the food item.</div></Modal.Body>
                 <Modal.Footer>
                     <div className='text-center'>
                         <button type='button' className='btn btn-primary' onClick={() => { setModalState({...defaultModalState}); }}>OK</button>
