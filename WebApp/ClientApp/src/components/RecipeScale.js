@@ -194,7 +194,7 @@ query ($id: Guid!) {
         const urat = 
             rFiU == sFiU
           ? 1 // they're literally the same thing!
-          : unitDictionary[rFiU].fromUnitConversions.filter(uc => uc.toUnit.id == sFiU)[0]?.ratio;
+          : unitDictionary[sFiU].fromUnitConversions.filter(uc => uc.toUnit.id == rFiU)[0]?.ratio;
 
         if (!urat) {
             console.error(`Couldn't find ratio from ${rFiU} to ${sFiU}}.`);
@@ -218,7 +218,7 @@ query ($id: Guid!) {
         const newIngredient = {
             ... oldIngredient
           , displayUnitId: selectedOption.value
-          , displayQuantity: oldIngredient.quantity / ratio
+          , displayQuantity: oldIngredient.quantity * ratio
         }
 
         const newIngredients = [ ...scaledRecipe.ingredients.slice(0, index), newIngredient, ...scaledRecipe.ingredients.slice(index+1)];
@@ -426,7 +426,7 @@ query ($id: Guid!) {
                                             value={si["-unitOptions"].filter(opt => opt.value == si.displayUnitId)}
                                             onChange={(selectedOption) => handleScaledRecipeUnitChange(selectedOption, index)}
                                         /></td>
-                                        <td><input id={`displayQuantity-${index}`} className="form-control" style={{"width": "4em"}} readOnly disabled value={si.displayQuantity} /></td>
+                                        <td><input id={`displayQuantity-${index}`} className="form-control" style={{"width": "4em"}} readOnly disabled value={Math.round(si.displayQuantity*100)/100} /></td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -76,7 +76,7 @@ namespace SnackAndTrack.DatabaseAccess.Seeding {
             EnsureUnitConversion("Mass", "Milligrams", "Pounds",     (Single) 0.000002204623);
             EnsureUnitConversion("Mass", "Micrograms", "Ounces",     (Single) 0.00000003527396);
             EnsureUnitConversion("Mass", "Micrograms", "Pounds",     (Single) 0.000000002204623);
-            EnsureUnitConversion("Mass", "Ounces",     "Pounds",     (Single) 16);
+            EnsureUnitConversion("Mass", "Ounces",     "Pounds",     (Single) 0.0625);
 
             this._ctx.SaveChanges();
         }
