@@ -596,6 +596,7 @@ query foodItems($query: String) {
 
     const handleDuplicateButton = () => {
         const newRecipe = { ... recipe, "-show-errors": false };
+        delete newRecipe["id"];
         setRecipe(newRecipe);
         setHasUnsavedChanges(true);
         setModalState({...modalState, showDuplicated: true});
@@ -786,6 +787,7 @@ query foodItems($query: String) {
                     <button type="submit" className="btn btn-primary">Save Recipe</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleScaleButton}>Scale Recipe</button>
+                    <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleDuplicateButton}>Duplicate Recipe</button>
                     <button type="button" className={`btn ${hasUnsavedChanges ? "btn-outline-dark" : "btn-outline-primary"}`} disabled={hasUnsavedChanges} onClick={handleComputeNutritionButton}>Compute Nutrition</button>
                 </div>
                 <div className="btn-group" role="group">
